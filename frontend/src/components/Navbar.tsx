@@ -9,6 +9,8 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const isLandingPage = pathname === "/";
   const isDashboardPage = pathname === "/dashboard";
+  const isReceivePage = pathname === "/receive";
+  const isAppShellPage = isDashboardPage || isReceivePage;
 
   const links = [
     { href: "/", label: "Home" },
@@ -17,7 +19,23 @@ export default function Navbar() {
     { href: "/dashboard", label: "Dashboard" },
   ];
 
-  if (isDashboardPage) {
+  if (isAppShellPage) {
+    const appLinks = isReceivePage
+      ? [
+          { href: "/send", label: "Send Money" },
+          { href: "/receive", label: "Track Transfer" },
+          { href: "/dashboard", label: "History" },
+          { href: "/receive", label: "Receive Money" },
+        ]
+      : [
+          { href: "/send", label: "Send Money" },
+          { href: "/receive", label: "Track Transfer" },
+          { href: "/dashboard", label: "History" },
+          { href: "/dashboard", label: "Dashboard" },
+        ];
+
+    const activeLabel = isReceivePage ? "Receive Money" : "Dashboard";
+
     return (
       <nav
         className="sticky top-0 z-50 px-4 py-3"
@@ -33,17 +51,12 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-            {[
-              { href: "/send", label: "Send Money" },
-              { href: "/receive", label: "Track Transfer" },
-              { href: "/dashboard", label: "History" },
-              { href: "/dashboard", label: "Dashboard" },
-            ].map((link) => (
+            {appLinks.map((link) => (
               <Link
                 key={`${link.href}-${link.label}`}
                 href={link.href}
                 className={
-                  link.label === "Dashboard"
+                  link.label === activeLabel
                     ? "text-[#ff7448]"
                     : "text-[#5f6f88] hover:text-[#132a52]"
                 }
@@ -93,16 +106,17 @@ export default function Navbar() {
 
         {menuOpen && (
           <div className="md:hidden mt-3 pt-3 border-t border-[#e1e8f3]">
-            {["Send Money", "Track Transfer", "History", "Dashboard"].map((label) => (
-              <button
-                key={label}
+            {appLinks.map((link) => (
+              <Link
+                key={`mobile-${link.href}-${link.label}`}
+                href={link.href}
                 className={`block w-full text-left px-2 py-2 text-sm ${
-                  label === "Dashboard" ? "text-[#ff7448]" : "text-[#5f6f88]"
+                  link.label === activeLabel ? "text-[#ff7448]" : "text-[#5f6f88]"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
-                {label}
-              </button>
+                {link.label}
+              </Link>
             ))}
           </div>
         )}

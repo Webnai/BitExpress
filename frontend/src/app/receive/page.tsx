@@ -1,354 +1,243 @@
-"use client";
+import Link from "next/link";
 
-import { useState } from "react";
-import { getCountry } from "@/types";
+const SUMMARY_ITEMS = [
+  { label: "Original Amount", value: "0.0105 BTC" },
+  { label: "Network Fee (Paid by sender)", value: "0.0005 BTC" },
+  { label: "Processing Status", value: "Ready to Claim" },
+];
 
-interface ClaimResult {
-  transferId: string;
-  status: string;
-  payout: {
-    reference: string;
-    localAmount: number;
-    localCurrency: string;
-    message: string;
-    estimatedDelivery: string;
-  };
-}
+const DETAIL_ITEMS = [
+  { label: "Transaction ID", value: "TX-BTC-458932", icon: "📋" },
+  { label: "Date & Time", value: "Dec 15, 2024 at 14:32 GMT", icon: "◷" },
+  { label: "Network", value: "Bitcoin Mainnet", icon: "◉" },
+  { label: "Confirmations", value: "6/6 Confirmed", icon: "●" },
+  { label: "Transaction Fee", value: "0.0005 BTC", icon: "ⓘ" },
+  { label: "Status", value: "Ready to Claim", icon: "•" },
+];
 
-interface TransactionInfo {
-  id: string;
-  amountUsd: number;
-  netAmount: number;
-  fee: number;
-  sourceCountry: { code: string; name: string; flag: string };
-  destCountry: { code: string; name: string; flag: string; mobileMoney: string };
-  recipientName?: string;
-  payoutMethod: string;
-  status: string;
-  createdAt: string;
-}
+const WITHDRAWAL_METHODS = [
+  {
+    icon: "📲",
+    title: "Withdraw to Mobile Money",
+    desc: "MTN MoMo, Flutterwave, M-Pesa, Moov Money",
+    chip: "Instant",
+    chipClass: "bg-emerald-100 text-emerald-600",
+  },
+  {
+    icon: "🏦",
+    title: "Convert to Local Currency",
+    desc: "View current exchange rates",
+    chip: "1-2 days",
+    chipClass: "bg-blue-100 text-blue-600",
+  },
+  {
+    icon: "🧱",
+    title: "Save in BTC Wallet",
+    desc: "Earn potential returns",
+    chip: "Secure",
+    chipClass: "bg-orange-100 text-orange-600",
+  },
+];
 
-const formatUtcDateTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
-};
-
-const formatUtcTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return `${date.toISOString().slice(11, 16)} UTC`;
-};
+const RECENT_RECEIVES = [
+  { name: "Kwame Mensah", amount: "0.005 BTC", time: "2 hours ago" },
+  { name: "Aisha Ibrahim", amount: "0.008 BTC", time: "1 day ago" },
+  { name: "John Kamau", amount: "0.012 BTC", time: "3 days ago" },
+  { name: "Amina Kofi", amount: "0.003 BTC", time: "5 days ago" },
+];
 
 export default function ReceivePage() {
-  const [transferId, setTransferId] = useState("");
-  const [receiverWallet, setReceiverWallet] = useState("");
-  const [txInfo, setTxInfo] = useState<TransactionInfo | null>(null);
-  const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<"lookup" | "review" | "claimed">("lookup");
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-  const handleLookup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!transferId.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/api/transaction/${transferId.trim()}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Transaction not found");
-        return;
-      }
-
-      if (data.transaction.status !== "pending") {
-        setError(`This transfer is already ${data.transaction.status}.`);
-        return;
-      }
-
-      setTxInfo(data.transaction);
-      setStep("review");
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClaim = async () => {
-    if (!txInfo || !receiverWallet.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/api/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transferId: txInfo.id,
-          receiverWallet: receiverWallet.trim(),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Claim failed");
-        return;
-      }
-
-      setClaimResult(data.transfer);
-      setStep("claimed");
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const reset = () => {
-    setStep("lookup");
-    setTransferId("");
-    setReceiverWallet("");
-    setTxInfo(null);
-    setClaimResult(null);
-    setError(null);
-  };
-
   return (
-    <div className="min-h-screen px-4 py-12">
-      <div className="max-w-lg mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            Claim <span className="gradient-text">Payment</span>
-          </h1>
-          <p className="text-gray-400">
-            Enter your transfer ID to claim your sBTC and withdraw to mobile money
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#f3f6fb]">
+      <div className="max-w-[1180px] mx-auto px-4 py-8 md:px-6">
+        <div className="grid gap-5 xl:grid-cols-[2fr_1fr]">
+          <section className="rounded-2xl border border-[#e1e8f3] bg-white p-6 shadow-[0_6px_20px_rgba(15,23,42,0.05)] md:p-7">
+            <h1 className="text-5xl md:text-4xl font-bold text-[#132a52]">Receive Money</h1>
+            <p className="mt-2 text-sm text-[#7f8ea9]">Claim your incoming Bitcoin transfer</p>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          {["lookup", "review", "claimed"].map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
-                style={{
-                  background:
-                    step === s
-                      ? "linear-gradient(135deg, #f97316, #f59e0b)"
-                      : i < ["lookup", "review", "claimed"].indexOf(step)
-                      ? "rgba(16,185,129,0.3)"
-                      : "rgba(255,255,255,0.1)",
-                  color:
-                    i <= ["lookup", "review", "claimed"].indexOf(step)
-                      ? "#fff"
-                      : "#9ca3af",
-                }}
-              >
-                {i < ["lookup", "review", "claimed"].indexOf(step) ? "✓" : i + 1}
-              </div>
-              {i < 2 && (
-                <div
-                  className="w-8 h-0.5"
-                  style={{
-                    background:
-                      i < ["lookup", "review", "claimed"].indexOf(step)
-                        ? "#10b981"
-                        : "rgba(255,255,255,0.1)",
-                  }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Step 1: Lookup */}
-        {step === "lookup" && (
-          <form onSubmit={handleLookup} className="card p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Transfer ID
-              </label>
-              <input
-                value={transferId}
-                onChange={(e) => { setTransferId(e.target.value); setError(null); }}
-                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                required
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none font-mono"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#f0f0f0",
-                }}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                You received this ID via SMS or from the sender
-              </p>
+            <div className="mt-6 rounded-xl border border-[#b7ebd4] bg-[#daf6e9] px-4 py-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-emerald-600">✅ Payment Received Successfully</p>
+              <span className="rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-bold text-white">Verified</span>
             </div>
 
-            {error && (
-              <div
-                className="p-3 rounded-lg text-sm text-red-400"
-                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}
-              >
-                ⚠️ {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !transferId.trim()}
-              className="btn-primary w-full py-4"
-            >
-              {loading ? "Looking up..." : "Look Up Transfer →"}
-            </button>
-          </form>
-        )}
-
-        {/* Step 2: Review & Claim */}
-        {step === "review" && txInfo && (
-          <div className="card p-6 space-y-5">
-            <h2 className="text-xl font-bold">Review Transfer</h2>
-
-            <div
-              className="p-4 rounded-xl space-y-3 text-sm"
-              style={{ background: "rgba(255,255,255,0.03)" }}
-            >
-              <div className="flex justify-between">
-                <span className="text-gray-400">From</span>
-                <span>
-                  {txInfo.sourceCountry.flag} {txInfo.sourceCountry.name}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Amount</span>
-                <span className="font-semibold">${txInfo.amountUsd.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">You receive</span>
-                <span className="text-green-400 font-semibold">${txInfo.netAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Payout via</span>
-                <span>{txInfo.destCountry.mobileMoney}</span>
-              </div>
-              {txInfo.recipientName && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Recipient</span>
-                  <span>{txInfo.recipientName}</span>
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">From</p>
+              <div className="mt-2 rounded-xl bg-[#f1f4f8] px-4 py-3 flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#8aa4d3] to-[#4d78d0] grid place-items-center text-white font-bold">
+                  KM
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-400">Created</span>
-                <span className="text-xs">
-                  {formatUtcDateTime(txInfo.createdAt)}
-                </span>
+                <div>
+                  <p className="font-semibold text-[#132a52]">Kwame Mensah ✓</p>
+                  <p className="text-xs text-[#7f8ea9]">🇬🇭 Ghana</p>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Your Wallet Address
-              </label>
-              <input
-                value={receiverWallet}
-                onChange={(e) => { setReceiverWallet(e.target.value); setError(null); }}
-                placeholder="SP... (your Stacks wallet)"
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#f0f0f0",
-                }}
-              />
-            </div>
-
-            {error && (
-              <div
-                className="p-3 rounded-lg text-sm text-red-400"
-                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}
-              >
-                ⚠️ {error}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={reset}
-                className="flex-1 py-3 rounded-xl text-sm"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
-                ← Back
-              </button>
-              <button
-                type="button"
-                onClick={handleClaim}
-                disabled={loading || !receiverWallet.trim()}
-                className="btn-primary flex-1 py-3 text-sm"
-              >
-                {loading ? "Claiming..." : "Claim Payment →"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Claimed! */}
-        {step === "claimed" && claimResult && (
-          <div className="card p-6 text-center space-y-5">
-            <div className="text-6xl">🎉</div>
-            <h2 className="text-2xl font-bold">Payment Claimed!</h2>
-            <p className="text-gray-400">
-              Your payment has been processed and is being sent to your mobile money.
-            </p>
-
-            <div
-              className="p-4 rounded-xl text-sm space-y-2"
-              style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}
-            >
-              <div className="flex justify-between">
-                <span className="text-gray-400">Amount</span>
-                <span className="text-green-400 font-semibold">
-                  {claimResult.payout.localCurrency}{" "}
-                  {claimResult.payout.localAmount.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Reference</span>
-                <span className="font-mono text-xs">{claimResult.payout.reference}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Est. delivery</span>
-                <span className="text-xs">
-                  {claimResult.payout.estimatedDelivery
-                    ? formatUtcTime(claimResult.payout.estimatedDelivery)
-                    : "Instant"}
-                </span>
+            <div className="mt-6 rounded-xl border-2 border-[#ff7448] bg-white p-4">
+              <p className="text-xs text-[#7f8ea9]">Amount Received</p>
+              <div className="mt-2 flex items-center justify-between">
+                <div>
+                  <p className="text-5xl font-bold text-[#132a52]">0.01</p>
+                  <p className="mt-2 text-sm font-semibold text-emerald-600">≈ $680.50 USD</p>
+                </div>
+                <div className="rounded-full bg-[#eef2f8] p-1 text-[10px] text-[#5f6f88] font-semibold h-fit">
+                  <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">BTC</span>
+                  <span className="px-3 py-1">sBTC</span>
+                </div>
               </div>
             </div>
 
-            <p className="text-sm text-gray-500">{claimResult.payout.message}</p>
+            <div className="mt-5 grid gap-2 md:grid-cols-2">
+              {DETAIL_ITEMS.map((item) => (
+                <div key={item.label} className="rounded-lg bg-[#f7f9fd] px-3 py-3">
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-[#7f8ea9]">
+                    <span>{item.label}</span>
+                    <span>{item.icon}</span>
+                  </div>
+                  <p
+                    className={`text-sm font-semibold ${
+                      item.label === "Confirmations"
+                        ? "text-emerald-600"
+                        : item.label === "Status"
+                          ? "text-[#132a52]"
+                          : "text-[#42526b]"
+                    }`}
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-            <button
-              onClick={reset}
-              className="btn-primary w-full py-3"
-            >
-              Claim Another Payment
-            </button>
-          </div>
-        )}
+            <div className="mt-7">
+              <h2 className="text-xl font-bold text-[#132a52]">Choose Withdrawal Method</h2>
+              <div className="mt-3 space-y-2">
+                {WITHDRAWAL_METHODS.map((method) => (
+                  <button
+                    key={method.title}
+                    className="w-full rounded-xl border border-[#dfe6f2] bg-white px-4 py-4 text-left hover:bg-[#fbfcff]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-1 text-lg">{method.icon}</span>
+                        <div>
+                          <p className="font-semibold text-[#132a52]">{method.title}</p>
+                          <p className="text-xs text-[#7f8ea9] mt-1">{method.desc}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${method.chipClass}`}>
+                          {method.chip}
+                        </span>
+                        <span className="text-[#8b99b0]">›</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-7">
+              <h2 className="text-sm font-semibold text-[#132a52]">Recent Receives</h2>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {RECENT_RECEIVES.map((entry) => (
+                  <div key={entry.name} className="rounded-xl bg-[#f6f9fe] px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#8aa4d3] to-[#4d78d0] grid place-items-center text-[11px] text-white font-bold">
+                        {entry.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-[#132a52]">{entry.name}</p>
+                        <p className="text-[11px] font-semibold text-[#ff7448]">{entry.amount}</p>
+                        <p className="text-[11px] text-[#8b99b0]">{entry.time}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-[#e1e8f3] bg-white p-6 h-fit shadow-[0_6px_20px_rgba(15,23,42,0.05)]">
+            <h2 className="text-3xl text-[1.8rem] font-bold text-[#132a52]">Claim Summary</h2>
+            <p className="mt-2 text-xs text-emerald-600 font-semibold">✅ Blockchain Verified</p>
+
+            <div className="mt-6 rounded-xl bg-[#f6f9fe] p-4">
+              <p className="text-xs text-[#7f8ea9]">Available to Claim</p>
+              <p className="mt-1 text-4xl font-bold text-[#132a52]">0.01 BTC</p>
+              <p className="mt-1 text-sm text-[#7f8ea9]">$680.50 USD</p>
+              <p className="mt-2 text-xs font-semibold text-emerald-600">▼ +2.3% (24h)</p>
+            </div>
+
+            <div className="mt-6 space-y-2">
+              {SUMMARY_ITEMS.map((item) => (
+                <div key={item.label} className="flex items-center justify-between border-b border-[#edf2f8] pb-2 text-sm">
+                  <span className="text-[#7f8ea9]">{item.label}</span>
+                  <span className="font-semibold text-[#42526b]">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-xl font-bold text-[#132a52] mb-3">You Receive</h3>
+              <div className="rounded-xl bg-[#f6f9fe] p-3 text-xs text-[#6f7d95]">
+                ⚡ Choose how to receive your funds. Mobile money arrives instantly.
+              </div>
+
+              <ul className="mt-4 space-y-2 text-sm text-[#5f6f88]">
+                <li>✓ Blockchain verified transaction</li>
+                <li>✓ Funds held in secure escrow</li>
+                <li>✓ Instant withdrawal available</li>
+              </ul>
+
+              <div className="mt-5 space-y-2">
+                <button className="w-full rounded-xl bg-[#ff7448] px-4 py-3 text-sm font-semibold text-white hover:opacity-95">
+                  Claim Funds Now
+                </button>
+                <Link
+                  href="/dashboard"
+                  className="block w-full rounded-xl border border-[#ff9c7f] bg-white px-4 py-3 text-center text-sm font-semibold text-[#ff7448]"
+                >
+                  View Transaction
+                </Link>
+              </div>
+
+              <p className="mt-4 text-xs text-[#8b99b0]">ⓘ Need help? Contact support</p>
+            </div>
+          </aside>
+        </div>
       </div>
+
+      <footer className="bg-[#0f2b57] px-4 py-12 text-white">
+        <div className="max-w-[1180px] mx-auto grid gap-8 md:grid-cols-4 text-sm">
+          <div>
+            <p className="text-2xl font-bold mb-3">₿ AfriSend</p>
+            <p className="text-white/80">Send money across Africa instantly with Bitcoin-powered remittance.</p>
+          </div>
+          <div>
+            <p className="font-semibold mb-3">Product</p>
+            <p className="text-white/80 mb-2">How it Works</p>
+            <p className="text-white/80 mb-2">Pricing</p>
+            <p className="text-white/80">Countries</p>
+          </div>
+          <div>
+            <p className="font-semibold mb-3">Company</p>
+            <p className="text-white/80 mb-2">About</p>
+            <p className="text-white/80 mb-2">Blog</p>
+            <p className="text-white/80">Careers</p>
+          </div>
+          <div>
+            <p className="font-semibold mb-3">Support</p>
+            <p className="text-white/80 mb-2">Help Center</p>
+            <p className="text-white/80 mb-2">Contact</p>
+            <p className="text-white/80">FAQ</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
