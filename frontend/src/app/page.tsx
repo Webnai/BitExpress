@@ -1,257 +1,212 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const FEATURES = [
   {
     icon: "⚡",
-    title: "Near-Instant Settlement",
+    title: "Instant Settlement",
     description:
-      "Transactions settle in minutes using Stacks Layer-2, secured by Bitcoin's blockchain.",
+      "Money arrives in minutes, not days. Real-time settlement powered by the Bitcoin network.",
   },
   {
-    icon: "💸",
-    title: "~1% Fees",
+    icon: "₿",
+    title: "Bitcoin-Secured",
     description:
-      "Pay only 0.5–1.5% per transfer — up to 10× cheaper than Western Union or MoneyGram.",
+      "Transparent and immutable transfer records protected by Bitcoin finality.",
   },
   {
     icon: "📱",
     title: "Mobile Money Ready",
     description:
-      "Seamless cash-out to MTN MoMo, M-Pesa, Flutterwave, and Moov Money.",
-  },
-  {
-    icon: "🔒",
-    title: "Bitcoin-Secured",
-    description:
-      "Every sBTC is backed 1:1 by BTC. Funds are protected by Bitcoin's security.",
+      "Direct integration with MTN Mobile Money, M-Pesa, and trusted local rails.",
   },
   {
     icon: "🌍",
     title: "Pan-African Coverage",
     description:
-      "Send money between Ghana, Nigeria, Kenya, Togo, Senegal, Tanzania, and Uganda.",
+      "Send money across Ghana, Nigeria, Kenya, Togo, and more African corridors.",
   },
-  {
-    icon: "🛡️",
-    title: "Escrow Protection",
-    description:
-      "Smart contract escrow ensures funds are only released when the receiver claims.",
-  },
-];
-
-const ROUTES = [
-  { from: "🇬🇭 Ghana", to: "🇳🇬 Nigeria", fee: "1%", time: "~3 min" },
-  { from: "🇬🇭 Ghana", to: "🇰🇪 Kenya", fee: "1%", time: "~3 min" },
-  { from: "🇬🇭 Ghana", to: "🇹🇬 Togo", fee: "1%", time: "~3 min" },
-  { from: "🇰🇪 Kenya", to: "🇳🇬 Nigeria", fee: "1%", time: "~3 min" },
 ];
 
 const STEPS = [
-  { step: "1", title: "Connect Wallet", desc: "Link your Leather or Xverse wallet with one click." },
-  { step: "2", title: "Enter Details", desc: "Enter recipient address, amount, and destination country." },
-  { step: "3", title: "Send sBTC", desc: "Sign the transaction — funds go into escrow on Stacks." },
-  { step: "4", title: "Recipient Claims", desc: "Receiver claims payment and withdraws to mobile money." },
+  { step: "1", title: "Add Money", desc: "Fund your account via bank transfer, card, or mobile money." },
+  { step: "2", title: "Convert to Bitcoin", desc: "Your funds are converted for secure, low-cost transfer." },
+  { step: "3", title: "Receiver Gets Local Currency", desc: "Recipient cashes out through local mobile money or bank rails." },
+];
+
+const COUNTRIES = [
+  { flag: "🇬🇭", name: "Ghana", methods: ["Mobile Money", "Bank Transfer"] },
+  { flag: "🇳🇬", name: "Nigeria", methods: ["Mobile Money", "Bank Transfer"] },
+  { flag: "🇰🇪", name: "Kenya", methods: ["M-Pesa", "Bank Transfer"] },
+  { flag: "🇹🇬", name: "Togo", methods: ["Mobile Money", "Bank Transfer"] },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen">
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden px-4 pt-20 pb-24 text-center"
-        style={{
-          background:
-            "radial-gradient(ellipse at center top, rgba(249,115,22,0.15) 0%, transparent 60%)",
-        }}
-      >
-        <div className="max-w-4xl mx-auto">
-          <div
-            className="inline-block px-4 py-1 rounded-full text-sm font-medium mb-6"
-            style={{
-              background: "rgba(249,115,22,0.1)",
-              border: "1px solid rgba(249,115,22,0.3)",
-              color: "#f97316",
-            }}
-          >
-            ₿ Powered by Stacks + sBTC
+    <div className="min-h-screen landing-page">
+      <section className="px-4 pt-14 pb-16 md:pt-18 md:pb-20 landing-hero-bg">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <p className="inline-flex items-center px-4 py-1 rounded-full text-sm font-semibold mb-5 landing-badge">
+              Bitcoin-powered remittance rail
+            </p>
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight text-[var(--color-heading)]">
+              Send Money Across Africa Instantly with Bitcoin
+            </h1>
+            <p className="text-lg md:text-xl text-[var(--color-text-muted)] mt-5 mb-8 max-w-xl">
+              Pay as low as 1% in fees and deliver in minutes, not days.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/send">
+                <button className="btn-primary text-base px-7 py-3 w-full sm:w-auto">
+                  Get Started →
+                </button>
+              </Link>
+              <Link href="/dashboard">
+                <button className="btn-secondary text-base px-7 py-3 w-full sm:w-auto">
+                  See How It Works
+                </button>
+              </Link>
+            </div>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-            Send Money Across Africa{" "}
-            <span className="gradient-text">Instantly</span>
-          </h1>
-          <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-            Bitcoin-secured cross-border remittances with{" "}
-            <strong className="text-orange-400">~1% fees</strong>.
-            Compare that to 7–10% at Western Union or MoneyGram.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/send">
-              <button className="btn-primary text-lg px-8 py-4 w-full sm:w-auto">
-                Send Money Now →
-              </button>
-            </Link>
-            <Link href="/dashboard">
-              <button
-                className="text-lg px-8 py-4 rounded-xl font-semibold w-full sm:w-auto transition-colors"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#f0f0f0",
-                }}
-              >
-                View Dashboard
-              </button>
-            </Link>
-          </div>
-          <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg mx-auto">
-            {[
-              { value: "~1%", label: "Avg Fee" },
-              { value: "3 min", label: "Settlement" },
-              { value: "7", label: "Countries" },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-3xl font-bold gradient-text">{stat.value}</div>
-                <div className="text-sm text-gray-400 mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Features */}
-      <section className="px-4 py-20">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">
-            Why <span className="gradient-text">BitExpress</span>?
-          </h2>
-          <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
-            Built on Stacks Layer-2, secured by Bitcoin — the most trusted
-            blockchain in the world.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="card p-6 hover:border-orange-500/40 transition-colors"
-              >
-                <div className="text-3xl mb-3">{f.icon}</div>
-                <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
-                <p className="text-gray-400 text-sm">{f.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Supported Routes */}
-      <section className="px-4 py-16" style={{ background: "rgba(26,26,46,0.5)" }}>
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Supported <span className="gradient-text">Routes</span>
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {ROUTES.map((route) => (
-              <div
-                key={`${route.from}-${route.to}`}
-                className="card p-4 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{route.from}</span>
-                  <span className="text-orange-400">→</span>
-                  <span className="text-lg">{route.to}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-green-400 text-sm font-semibold">{route.fee}</div>
-                  <div className="text-gray-500 text-xs">{route.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-center text-gray-500 text-sm mt-4">
-            + More routes: Senegal, Tanzania, Uganda
-          </p>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="px-4 py-20">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            How It <span className="gradient-text">Works</span>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {STEPS.map((s) => (
-              <div key={s.step} className="text-center">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg mx-auto mb-4"
-                  style={{ background: "linear-gradient(135deg, #f97316, #f59e0b)" }}
-                >
-                  {s.step}
-                </div>
-                <h3 className="font-semibold mb-2">{s.title}</h3>
-                <p className="text-gray-400 text-sm">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Architecture */}
-      <section className="px-4 py-16" style={{ background: "rgba(26,26,46,0.5)" }}>
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-8">
-            System <span className="gradient-text">Architecture</span>
-          </h2>
-          <div className="card p-8 text-sm font-mono text-left">
-            <div className="space-y-2 text-gray-300">
-              <div className="text-orange-400">User A (Ghana)</div>
-              <div className="ml-3">│ send BTC</div>
-              <div className="ml-3">▼</div>
-              <div className="text-yellow-400 ml-3">BTC → sBTC bridge</div>
-              <div className="ml-3">│</div>
-              <div className="ml-3">▼</div>
-              <div className="text-blue-400 ml-3">Stacks Smart Contract (Clarity)</div>
-              <div className="ml-3">│</div>
-              <div className="ml-3">▼</div>
-              <div className="text-purple-400 ml-3">Receiver Wallet</div>
-              <div className="ml-3">│</div>
-              <div className="ml-3">▼</div>
-              <div className="text-green-400 ml-3">Local off-ramp partner</div>
-              <div className="ml-3">│</div>
-              <div className="ml-3">▼</div>
-              <div className="text-emerald-400 ml-3">Mobile Money / Bank (Nigeria)</div>
+          <div className="relative">
+            <div className="landing-hero-frame p-4 md:p-5">
+              <Image
+                src="/image 1.png"
+                alt="BitExpress mobile app preview"
+                width={1100}
+                height={800}
+                priority
+                className="w-full h-auto rounded-2xl"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-4 py-20 text-center">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-4xl font-bold mb-4">
-            Ready to <span className="gradient-text">Send?</span>
-          </h2>
-          <p className="text-gray-400 mb-8">
-            Join the future of African cross-border payments. Low fees, fast
-            settlement, Bitcoin secured.
-          </p>
-          <Link href="/send">
-            <button className="btn-primary text-lg px-10 py-4">
-              Get Started — Send Money Now →
-            </button>
-          </Link>
+      <section className="px-4 py-5 landing-trust-band">
+        <div className="max-w-6xl mx-auto text-center text-sm font-medium text-[var(--color-text-muted)]">
+          Trusted by 50,000+ users across Africa
         </div>
       </section>
 
-      {/* Footer */}
-      <footer
-        className="px-4 py-8 text-center text-gray-600 text-sm"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-      >
-        <p>
-          BitExpress — Bitcoin Remittance Infrastructure for Africa |{" "}
-          <span className="gradient-text">Built on Stacks + sBTC</span>
-        </p>
+      <section className="px-4 py-16 md:py-20">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-bold text-center text-[var(--color-heading)] mb-10">
+            Stop Overpaying for Remittances
+          </h2>
+          <div className="grid md:grid-cols-[1fr_auto_1fr] gap-5 items-center">
+            <div className="landing-rate-card landing-rate-card-old text-center p-8">
+              <p className="font-semibold text-[var(--color-text-muted)] mb-4">Traditional Services</p>
+              <p className="text-5xl font-extrabold text-[var(--color-danger-500)]">7-10%</p>
+              <p className="text-sm text-[var(--color-text-muted)] mt-4">$70-$100 in fees per $1000</p>
+            </div>
+            <div className="hidden md:block text-5xl font-bold text-[var(--color-primary)]">→</div>
+            <div className="landing-rate-card landing-rate-card-new text-center p-8">
+              <p className="font-semibold text-[var(--color-text-muted)] mb-4">BitExpress</p>
+              <p className="text-5xl font-extrabold text-[var(--color-success-600)]">0.5-1.5%</p>
+              <p className="text-sm text-[var(--color-text-muted)] mt-4">$5-$15 in fees per $1000</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-16 landing-section-muted">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {FEATURES.map((feature) => (
+            <div key={feature.title} className="landing-feature-card p-6">
+              <div className="text-2xl mb-4 w-10 h-10 rounded-lg flex items-center justify-center landing-feature-icon">
+                {feature.icon}
+              </div>
+              <h3 className="font-bold text-xl text-[var(--color-heading)] mb-2">{feature.title}</h3>
+              <p className="text-sm leading-6 text-[var(--color-text-muted)]">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="px-4 py-18">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-bold text-center text-[var(--color-heading)] mb-14">
+            Send Money in 3 Simple Steps
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {STEPS.map((s) => (
+              <div key={s.step} className="text-center relative">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-5 bg-[var(--color-primary)]">
+                  {s.step}
+                </div>
+                <h3 className="font-bold text-xl text-[var(--color-heading)] mb-2">{s.title}</h3>
+                <p className="text-[var(--color-text-muted)] text-sm leading-6">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-16 landing-section-muted">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-bold text-center text-[var(--color-heading)] mb-12">
+            Available Across Africa
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {COUNTRIES.map((country) => (
+              <div key={country.name} className="landing-country-card p-6 text-center">
+                <div className="text-4xl mb-4">{country.flag}</div>
+                <h3 className="text-xl font-bold text-[var(--color-heading)] mb-3">{country.name}</h3>
+                <div className="space-y-1">
+                  {country.methods.map((method) => (
+                    <p key={method} className="text-sm text-[var(--color-text-muted)]">📱 {method}</p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-18" style={{ background: "var(--color-primary)" }}>
+        <div className="max-w-3xl mx-auto text-center text-white">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Start Sending Money Today</h2>
+          <p className="text-white/90 text-lg mb-7">Join thousands saving on remittances.</p>
+          <Link href="/send">
+            <button className="landing-cta-button px-8 py-3 rounded-xl font-bold">
+              Create Free Account
+            </button>
+          </Link>
+          <p className="text-xs text-white/80 mt-3">No credit card required</p>
+        </div>
+      </section>
+
+      <footer className="px-4 py-12" style={{ background: "var(--color-heading)" }}>
+        <div className="max-w-6xl mx-auto grid md:grid-cols-4 gap-8 text-white/80 text-sm">
+          <div>
+            <p className="text-xl font-bold text-white mb-3">BitExpress</p>
+            <p>Send money across Africa instantly with Bitcoin-powered remittances.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-white mb-3">Product</p>
+            <p className="mb-2">How it Works</p>
+            <p className="mb-2">Pricing</p>
+            <p>Countries</p>
+          </div>
+          <div>
+            <p className="font-semibold text-white mb-3">Company</p>
+            <p className="mb-2">About</p>
+            <p className="mb-2">Blog</p>
+            <p>Careers</p>
+          </div>
+          <div>
+            <p className="font-semibold text-white mb-3">Support</p>
+            <p className="mb-2">Help Center</p>
+            <p className="mb-2">Contact</p>
+            <p>FAQ</p>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10 text-white/60 text-xs text-center">
+          © 2026 BitExpress. All rights reserved.
+        </div>
       </footer>
     </div>
   );

@@ -7,6 +7,7 @@ import { useState } from "react";
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const isLandingPage = pathname === "/";
 
   const links = [
     { href: "/", label: "Home" },
@@ -18,8 +19,12 @@ export default function Navbar() {
   return (
     <nav
       style={{
-        background: "rgba(26, 26, 46, 0.95)",
-        borderBottom: "1px solid rgba(249,115,22,0.2)",
+        background: isLandingPage
+          ? "rgba(255, 255, 255, 0.92)"
+          : "rgba(26, 26, 46, 0.95)",
+        borderBottom: isLandingPage
+          ? "1px solid var(--color-border)"
+          : "1px solid rgba(249,115,22,0.2)",
         backdropFilter: "blur(8px)",
       }}
       className="sticky top-0 z-50 px-4 py-4"
@@ -38,8 +43,10 @@ export default function Navbar() {
               href={link.href}
               className={`text-sm font-medium transition-colors ${
                 pathname === link.href
-                  ? "text-orange-400"
-                  : "text-gray-400 hover:text-orange-400"
+                  ? "text-[var(--color-primary)]"
+                  : isLandingPage
+                    ? "text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+                    : "text-gray-400 hover:text-orange-400"
               }`}
             >
               {link.label}
@@ -54,7 +61,11 @@ export default function Navbar() {
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden text-gray-400 hover:text-white"
+          className={`md:hidden ${
+            isLandingPage
+              ? "text-[var(--color-text-muted)] hover:text-[var(--color-heading)]"
+              : "text-gray-400 hover:text-white"
+          }`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
@@ -96,8 +107,10 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
               className={`block px-4 py-2 text-sm font-medium ${
                 pathname === link.href
-                  ? "text-orange-400"
-                  : "text-gray-400"
+                  ? "text-[var(--color-primary)]"
+                  : isLandingPage
+                    ? "text-[var(--color-text-muted)]"
+                    : "text-gray-400"
               }`}
             >
               {link.label}

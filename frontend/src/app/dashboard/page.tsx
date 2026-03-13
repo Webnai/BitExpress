@@ -33,6 +33,12 @@ const STATUS_COLORS: Record<string, string> = {
   failed: "#ef4444",
 };
 
+const formatUtcDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toISOString().slice(0, 10);
+};
+
 export default function DashboardPage() {
   const [walletAddress, setWalletAddress] = useState("");
   const [inputAddress, setInputAddress] = useState("");
@@ -206,7 +212,7 @@ export default function DashboardPage() {
                           {t.id.slice(0, 12)}...
                         </div>
                         <div className="text-xs text-gray-600">
-                          {new Date(t.createdAt).toLocaleDateString()}
+                          {formatUtcDate(t.createdAt)}
                         </div>
                       </div>
                     </div>

@@ -28,6 +28,18 @@ interface TransactionInfo {
   createdAt: string;
 }
 
+const formatUtcDateTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
+};
+
+const formatUtcTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return `${date.toISOString().slice(11, 16)} UTC`;
+};
+
 export default function ReceivePage() {
   const [transferId, setTransferId] = useState("");
   const [receiverWallet, setReceiverWallet] = useState("");
@@ -237,7 +249,7 @@ export default function ReceivePage() {
               <div className="flex justify-between">
                 <span className="text-gray-400">Created</span>
                 <span className="text-xs">
-                  {new Date(txInfo.createdAt).toLocaleString()}
+                  {formatUtcDateTime(txInfo.createdAt)}
                 </span>
               </div>
             </div>
@@ -320,7 +332,7 @@ export default function ReceivePage() {
                 <span className="text-gray-400">Est. delivery</span>
                 <span className="text-xs">
                   {claimResult.payout.estimatedDelivery
-                    ? new Date(claimResult.payout.estimatedDelivery).toLocaleTimeString()
+                    ? formatUtcTime(claimResult.payout.estimatedDelivery)
                     : "Instant"}
                 </span>
               </div>
