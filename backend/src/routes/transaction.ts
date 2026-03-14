@@ -6,6 +6,60 @@ import { sendNotification } from "../services/notificationService";
 const router = Router();
 
 /**
+ * GET /api/transaction/wallet/:address
+ * Get all transfers for a wallet address.
+ */
+router.get("/wallet/:address", (req: Request, res: Response) => {
+  const { address } = req.params;
+
+  const sent = db.getTransfersBySender(address);
+  const received = db.getTransfersByReceiver(address);
+
+  return res.json({
+    sent: sent
+      .slice()
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((t) => ({
+        id: t.id,
+        direction: "sent",
+        counterpartyWallet: t.receiver,
+        counterpartyName: t.recipientName,
+        amountUsd: t.amountUsd,
+        fee: t.fee,
+        netAmount: t.netAmount,
+        countryCode: t.destCountry,
+        countryName: SUPPORTED_COUNTRIES[t.destCountry]?.name,
+        payoutMethod: t.payoutMethod,
+        status: t.status,
+        stacksTxId: t.stacksTxId,
+        createdAt: t.createdAt,
+        claimedAt: t.claimedAt,
+        mobileMoneyRef: t.mobileMoneyRef,
+      })),
+    received: received
+      .slice()
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((t) => ({
+        id: t.id,
+        direction: "received",
+        counterpartyWallet: t.sender,
+        counterpartyName: t.recipientName,
+        amountUsd: t.netAmount,
+        fee: t.fee,
+        netAmount: t.netAmount,
+        countryCode: t.sourceCountry,
+        countryName: SUPPORTED_COUNTRIES[t.sourceCountry]?.name,
+        payoutMethod: t.payoutMethod,
+        status: t.status,
+        stacksTxId: t.stacksTxId,
+        createdAt: t.createdAt,
+        claimedAt: t.claimedAt,
+        mobileMoneyRef: t.mobileMoneyRef,
+      })),
+  });
+});
+
+/**
  * GET /api/transaction/:id
  * Retrieve details for a specific transfer.
  */
@@ -52,36 +106,6 @@ router.get("/:id", (req: Request, res: Response) => {
       claimedAt: transfer.claimedAt,
       refundedAt: transfer.refundedAt,
     },
-  });
-});
-
-/**
- * GET /api/transaction/wallet/:address
- * Get all transfers for a wallet address.
- */
-router.get("/wallet/:address", (req: Request, res: Response) => {
-  const { address } = req.params;
-
-  const sent = db.getTransfersBySender(address);
-  const received = db.getTransfersByReceiver(address);
-
-  return res.json({
-    sent: sent.map((t) => ({
-      id: t.id,
-      receiver: t.receiver,
-      amountUsd: t.amountUsd,
-      destCountry: t.destCountry,
-      status: t.status,
-      createdAt: t.createdAt,
-    })),
-    received: received.map((t) => ({
-      id: t.id,
-      sender: t.sender,
-      amountUsd: t.netAmount,
-      sourceCountry: t.sourceCountry,
-      status: t.status,
-      createdAt: t.createdAt,
-    })),
   });
 });
 

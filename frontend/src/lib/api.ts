@@ -1,5 +1,10 @@
 import { API_BASE_URL } from "@/types";
 
+const STACKS_MAINNET_API_BASE_URL =
+  process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
+const STACKS_TESTNET_API_BASE_URL =
+  process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
+
 async function parseJsonResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
   if (!res.ok) {
@@ -98,20 +103,55 @@ export async function apiGetWalletHistory(address: string) {
   return parseJsonResponse<{
     sent: Array<{
       id: string;
-      receiver: string;
+      direction: "sent";
+      counterpartyWallet: string;
+      counterpartyName?: string;
       amountUsd: number;
-      destCountry: string;
+      fee: number;
+      netAmount: number;
+      countryCode: string;
+      countryName?: string;
+      payoutMethod: string;
       status: string;
+      stacksTxId?: string;
       createdAt: string;
+      claimedAt?: string;
+      mobileMoneyRef?: string;
     }>;
     received: Array<{
       id: string;
-      sender: string;
+      direction: "received";
+      counterpartyWallet: string;
+      counterpartyName?: string;
       amountUsd: number;
-      sourceCountry: string;
+      fee: number;
+      netAmount: number;
+      countryCode: string;
+      countryName?: string;
+      payoutMethod: string;
       status: string;
+      stacksTxId?: string;
       createdAt: string;
+      claimedAt?: string;
+      mobileMoneyRef?: string;
     }>;
+  }>(res);
+}
+
+export async function apiGetWalletBalance(address: string) {
+  const isTestnet = address.startsWith("ST") || address.startsWith("SN");
+  const baseUrl = isTestnet
+    ? STACKS_TESTNET_API_BASE_URL
+    : STACKS_MAINNET_API_BASE_URL;
+  const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
+    cache: "no-store",
+  });
+  return parseJsonResponse<{
+    stx: {
+      balance: string;
+      total_sent: string;
+      total_received: string;
+    };
   }>(res);
 }
 
