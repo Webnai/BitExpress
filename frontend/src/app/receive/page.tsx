@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CountryFlag from "@/components/CountryFlag";
 
 const SUMMARY_ITEMS = [
   { label: "Original Amount", value: "0.0105 BTC" },
@@ -68,7 +69,10 @@ export default function ReceivePage() {
                 </div>
                 <div>
                   <p className="font-semibold text-[#132a52]">Kwame Mensah ✓</p>
-                  <p className="text-xs text-[#7f8ea9]">🇬🇭 Ghana</p>
+                  <div className="flex items-center gap-1 text-xs text-[#7f8ea9]">
+                    <CountryFlag country="Ghana" variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
+                    <span>Ghana</span>
+                  </div>
                 </div>
               </div>
             </div>

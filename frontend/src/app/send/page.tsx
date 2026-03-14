@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import CountryFlag from "@/components/CountryFlag";
 
 const RECIPIENTS = [
   { name: "Kwame Mensah", country: "Ghana", amount: "0.005 BTC" },
@@ -44,6 +45,9 @@ export default function SendPage() {
               <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
                 <label className="text-[11px] text-[#7f8ea9] block mb-1">Country</label>
                 <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CountryFlag country={country as "Ghana" | "Nigeria" | "Kenya" | "Togo"} variant={1} size={20} className="h-5 w-5 rounded-sm object-cover" />
+                  </div>
                   <select
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
@@ -132,7 +136,10 @@ export default function SendPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-[#132a52]">{entry.name}</p>
-                        <p className="text-[11px] text-[#8b99b0]">{entry.country}</p>
+                        <div className="flex items-center gap-1 text-[11px] text-[#8b99b0]">
+                          <CountryFlag country={entry.country as "Ghana" | "Nigeria" | "Kenya" | "Togo"} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
+                          <span>{entry.country}</span>
+                        </div>
                         <p className="text-[11px] font-semibold text-[#ff7448]">{entry.amount}</p>
                       </div>
                     </div>

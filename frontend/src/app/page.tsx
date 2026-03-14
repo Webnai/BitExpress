@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import CountryFlag from "@/components/CountryFlag";
 
 const FEATURES = [
   {
@@ -35,10 +36,10 @@ const STEPS = [
 ];
 
 const COUNTRIES = [
-  { flag: "🇬🇭", name: "Ghana", methods: ["Mobile Money", "Bank Transfer"] },
-  { flag: "🇳🇬", name: "Nigeria", methods: ["Mobile Money", "Bank Transfer"] },
-  { flag: "🇰🇪", name: "Kenya", methods: ["M-Pesa", "Bank Transfer"] },
-  { flag: "🇹🇬", name: "Togo", methods: ["Mobile Money", "Bank Transfer"] },
+  { name: "Ghana" as const, methods: ["Mobile Money", "Bank Transfer"] },
+  { name: "Nigeria" as const, methods: ["Mobile Money", "Bank Transfer"] },
+  { name: "Kenya" as const, methods: ["M-Pesa", "Bank Transfer"] },
+  { name: "Togo" as const, methods: ["Mobile Money", "Bank Transfer"] },
 ];
 
 export default function LandingPage() {
@@ -86,8 +87,14 @@ export default function LandingPage() {
       </section>
 
       <section className="px-4 py-5 landing-trust-band">
-        <div className="max-w-6xl mx-auto text-center text-sm font-medium text-[var(--color-text-muted)]">
-          Trusted by 50,000+ users across Africa
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-3 text-center text-sm font-medium text-[var(--color-text-muted)]">
+          <span>Trusted by 50,000+ users across Africa</span>
+          <div className="flex items-center gap-2">
+            <CountryFlag country="Ghana" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
+            <CountryFlag country="Nigeria" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
+            <CountryFlag country="Kenya" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
+            <CountryFlag country="Togo" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
+          </div>
         </div>
       </section>
 
@@ -153,7 +160,9 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
             {COUNTRIES.map((country) => (
               <div key={country.name} className="landing-country-card p-6 text-center">
-                <div className="text-4xl mb-4">{country.flag}</div>
+                <div className="mb-4 flex justify-center">
+                  <CountryFlag country={country.name} variant={1} size={72} className="h-[72px] w-[72px] object-contain" />
+                </div>
                 <h3 className="text-xl font-bold text-[var(--color-heading)] mb-3">{country.name}</h3>
                 <div className="space-y-1">
                   {country.methods.map((method) => (

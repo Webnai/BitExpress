@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CountryFlag from "@/components/CountryFlag";
 
 interface HistoryRow {
   date: string;
@@ -7,7 +8,6 @@ interface HistoryRow {
   role: "Received" | "Sent";
   amountBtc: string;
   amountUsd: string;
-  countryFlag: string;
   country: string;
   status: "Completed" | "Pending" | "Failed";
   method: string;
@@ -21,7 +21,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Received",
     amountBtc: "0.011 BTC",
     amountUsd: "$890.50",
-    countryFlag: "🇬🇭",
     country: "Ghana",
     status: "Completed",
     method: "Mobile Money",
@@ -33,7 +32,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Sent",
     amountBtc: "0.008 BTC",
     amountUsd: "$544.40",
-    countryFlag: "🇳🇬",
     country: "Nigeria",
     status: "Completed",
     method: "Bank Transfer",
@@ -45,7 +43,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Received",
     amountBtc: "0.012 BTC",
     amountUsd: "$816.60",
-    countryFlag: "🇰🇪",
     country: "Kenya",
     status: "Pending",
     method: "Mobile Money",
@@ -57,7 +54,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Sent",
     amountBtc: "0.003 BTC",
     amountUsd: "$204.15",
-    countryFlag: "🇬🇭",
     country: "Ghana",
     status: "Completed",
     method: "Wallet",
@@ -69,7 +65,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Received",
     amountBtc: "0.015 BTC",
     amountUsd: "$1,020.75",
-    countryFlag: "🇳🇬",
     country: "Nigeria",
     status: "Completed",
     method: "Mobile Money",
@@ -81,7 +76,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Sent",
     amountBtc: "0.007 BTC",
     amountUsd: "$476.35",
-    countryFlag: "🇿🇦",
     country: "South Africa",
     status: "Failed",
     method: "Bank Transfer",
@@ -93,7 +87,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Received",
     amountBtc: "0.009 BTC",
     amountUsd: "$612.45",
-    countryFlag: "🇰🇪",
     country: "Kenya",
     status: "Completed",
     method: "Wallet",
@@ -105,7 +98,6 @@ const HISTORY_ROWS: HistoryRow[] = [
     role: "Sent",
     amountBtc: "0.005 BTC",
     amountUsd: "$340.25",
-    countryFlag: "🇬🇭",
     country: "Ghana",
     status: "Completed",
     method: "Mobile Money",
@@ -119,11 +111,11 @@ const STATUS_CLASS: Record<HistoryRow["status"], string> = {
 };
 
 const COUNTRY_SHARE = [
-  { name: "Nigeria", flag: "🇳🇬", percent: 35 },
-  { name: "Ghana", flag: "🇬🇭", percent: 28 },
-  { name: "Kenya", flag: "🇰🇪", percent: 22 },
-  { name: "South Africa", flag: "🇿🇦", percent: 10 },
-  { name: "Others", flag: "", percent: 5 },
+  { name: "Nigeria", percent: 35 },
+  { name: "Ghana", percent: 28 },
+  { name: "Kenya", percent: 22 },
+  { name: "South Africa", percent: 10 },
+  { name: "Others", percent: 5 },
 ];
 
 const ACTIVITY = [
@@ -267,7 +259,14 @@ export default function DashboardPage() {
                         <p className="font-semibold text-[#132a52]">{row.amountBtc}</p>
                         <p className="text-[11px] text-[#8b99b0]">{row.amountUsd}</p>
                       </td>
-                      <td className="py-3 text-[#42526b]">{row.countryFlag} {row.country}</td>
+                      <td className="py-3 text-[#42526b]">
+                        <div className="flex items-center gap-1.5">
+                          {row.country === "Ghana" || row.country === "Nigeria" || row.country === "Kenya" || row.country === "Togo" ? (
+                            <CountryFlag country={row.country} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
+                          ) : null}
+                          <span>{row.country}</span>
+                        </div>
+                      </td>
                       <td className="py-3">
                         <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASS[row.status]}`}>
                           {row.status}
@@ -346,7 +345,12 @@ export default function DashboardPage() {
                 {COUNTRY_SHARE.map((country) => (
                   <div key={country.name}>
                     <div className="mb-1 flex items-center justify-between text-xs text-[#5f6f88]">
-                      <span>{country.flag ? `${country.flag} ` : ""}{country.name}</span>
+                      <span className="flex items-center gap-1.5">
+                        {country.name === "Ghana" || country.name === "Nigeria" || country.name === "Kenya" || country.name === "Togo" ? (
+                          <CountryFlag country={country.name} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
+                        ) : null}
+                        <span>{country.name}</span>
+                      </span>
                       <span>{country.percent}%</span>
                     </div>
                     <div className="h-2 rounded-full bg-[#edf2f8]">
