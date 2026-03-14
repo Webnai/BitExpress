@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { WalletProvider } from "@/components/WalletProvider";
+import WalletRouteGuard from "@/components/WalletRouteGuard";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "BitExpress — Bitcoin Remittance for Africa",
@@ -19,8 +22,13 @@ export default function RootLayout({
         className="antialiased min-h-screen"
         style={{ background: "var(--background)", color: "var(--foreground)" }}
       >
-        <Navbar />
-        <main>{children}</main>
+        <WalletProvider>
+          <Navbar />
+          <WalletRouteGuard>
+            <main>{children}</main>
+          </WalletRouteGuard>
+          <Toaster richColors position="top-right" />
+        </WalletProvider>
       </body>
     </html>
   );

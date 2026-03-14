@@ -1,5 +1,16 @@
 import Link from "next/link";
 import CountryFlag from "@/components/CountryFlag";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 
 interface HistoryRow {
   date: string;
@@ -105,9 +116,9 @@ const HISTORY_ROWS: HistoryRow[] = [
 ];
 
 const STATUS_CLASS: Record<HistoryRow["status"], string> = {
-  Completed: "bg-emerald-100 text-emerald-600",
-  Pending: "bg-amber-100 text-amber-600",
-  Failed: "bg-red-100 text-red-600",
+  Completed: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
+  Pending: "bg-amber-100 text-amber-700 hover:bg-amber-100",
+  Failed: "bg-red-100 text-red-700 hover:bg-red-100",
 };
 
 const COUNTRY_SHARE = [
@@ -173,39 +184,52 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#f3f6fb]">
       <div className="max-w-[1180px] mx-auto px-4 py-7 md:px-6 md:py-8">
+
+        {/* ── Stat cards ── */}
         <section className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-            <p className="text-xs text-[#7f8ea9] mb-3">Total Balance</p>
-            <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-3">0.0487 BTC</p>
-            <p className="text-sm text-[#8b99b0]">≈ $3,312.59 USD</p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-600">+5.2% (7d)</span>
-              <div className="rounded-full bg-[#eef2f8] p-1 text-[10px] text-[#5f6f88] font-semibold">
-                <span className="rounded-full bg-[#ff7448] px-2 py-1 text-white">BTC</span>
-                <span className="px-2 py-1">sBTC</span>
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-normal text-[#7f8ea9]">Total Balance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-1">0.0487 BTC</p>
+              <p className="text-sm text-[#8b99b0] mb-4">≈ $3,312.59 USD</p>
+              <div className="flex items-center justify-between">
+                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">+5.2% (7d)</Badge>
+                <div className="rounded-full bg-[#eef2f8] p-1 text-[10px] text-[#5f6f88] font-semibold flex">
+                  <span className="rounded-full bg-[#ff7448] px-2 py-1 text-white">BTC</span>
+                  <span className="px-2 py-1">sBTC</span>
+                </div>
               </div>
-            </div>
-          </article>
+            </CardContent>
+          </Card>
 
-          <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-            <p className="text-xs text-[#7f8ea9] mb-3">Completed Transfers</p>
-            <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-3">247</p>
-            <p className="text-sm text-[#8b99b0]">This month: 18</p>
-            <div className="mt-6 flex justify-end">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#fff2ec] text-[#ff7448]">↗</span>
-            </div>
-          </article>
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-normal text-[#7f8ea9]">Completed Transfers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-1">247</p>
+              <p className="text-sm text-[#8b99b0] mb-4">This month: 18</p>
+              <div className="flex justify-end">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#fff2ec] text-[#ff7448]">↗</span>
+              </div>
+            </CardContent>
+          </Card>
 
-          <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-            <p className="text-xs text-[#7f8ea9] mb-3">Lifetime Savings</p>
-            <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-3">$845.32 USD</p>
-            <p className="text-sm text-[#8b99b0]">vs traditional methods</p>
-            <span className="mt-4 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-600">
-              +$127 this year
-            </span>
-          </article>
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-normal text-[#7f8ea9]">Lifetime Savings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-[2rem] leading-none font-bold text-[#132a52] mb-1">$845.32 USD</p>
+              <p className="text-sm text-[#8b99b0] mb-4">vs traditional methods</p>
+              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">+$127 this year</Badge>
+            </CardContent>
+          </Card>
         </section>
 
+        {/* ── Action bar ── */}
         <section className="mt-5 rounded-2xl border border-[#d6e7f5] bg-[#e9f4ff] p-3 md:p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-2">
@@ -223,63 +247,66 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* ── Transaction history + charts ── */}
         <section className="mt-5 grid gap-5 xl:grid-cols-[2fr_1.15fr]">
-          <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-[1.7rem] font-bold text-[#132a52]">Transaction History</h2>
-                <p className="text-sm text-[#8b99b0]">Recent transfers and receipts</p>
-              </div>
-              <button className="text-xs font-semibold text-[#ff7448]">🔍 Export</button>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-xs">
-                <thead>
-                  <tr className="border-b border-[#edf2f8] text-left text-[#8392aa]">
-                    <th className="py-2 font-semibold">Date/Time</th>
-                    <th className="py-2 font-semibold">Transaction ID</th>
-                    <th className="py-2 font-semibold">From/To</th>
-                    <th className="py-2 font-semibold">Amount</th>
-                    <th className="py-2 font-semibold">Country</th>
-                    <th className="py-2 font-semibold">Status</th>
-                    <th className="py-2 font-semibold">Method</th>
-                  </tr>
-                </thead>
-                <tbody>
+          {/* Transaction table */}
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-[1.7rem] font-bold text-[#132a52]">Transaction History</CardTitle>
+                  <p className="text-sm text-[#8b99b0]">Recent transfers and receipts</p>
+                </div>
+                <button className="text-xs font-semibold text-[#ff7448]">🔍 Export</button>
+              </div>
+            </CardHeader>
+            <Separator className="bg-[#edf2f8]" />
+            <CardContent className="pt-0 overflow-x-auto">
+              <Table className="min-w-[900px] text-xs">
+                <TableHeader>
+                  <TableRow className="border-[#edf2f8] hover:bg-transparent">
+                    <TableHead className="text-[#8392aa] font-semibold">Date/Time</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">Transaction ID</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">From/To</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">Amount</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">Country</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">Status</TableHead>
+                    <TableHead className="text-[#8392aa] font-semibold">Method</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {HISTORY_ROWS.map((row) => (
-                    <tr key={row.txId} className="border-b border-[#f1f4fa] last:border-0">
-                      <td className="py-3 text-[#5f6f88]">{row.date}</td>
-                      <td className="py-3 font-medium text-[#42526b]">{row.txId}</td>
-                      <td className="py-3">
+                    <TableRow key={row.txId} className="border-[#f1f4fa] hover:bg-[#fafbfe]">
+                      <TableCell className="text-[#5f6f88]">{row.date}</TableCell>
+                      <TableCell className="font-medium text-[#42526b]">{row.txId}</TableCell>
+                      <TableCell>
                         <p className="font-semibold text-[#132a52]">{row.name}</p>
                         <p className="text-[11px] text-[#8b99b0]">{row.role}</p>
-                      </td>
-                      <td className="py-3">
+                      </TableCell>
+                      <TableCell>
                         <p className="font-semibold text-[#132a52]">{row.amountBtc}</p>
                         <p className="text-[11px] text-[#8b99b0]">{row.amountUsd}</p>
-                      </td>
-                      <td className="py-3 text-[#42526b]">
+                      </TableCell>
+                      <TableCell className="text-[#42526b]">
                         <div className="flex items-center gap-1.5">
-                          {row.country === "Ghana" || row.country === "Nigeria" || row.country === "Kenya" || row.country === "Togo" ? (
+                          {(row.country === "Ghana" || row.country === "Nigeria" || row.country === "Kenya" || row.country === "Togo") && (
                             <CountryFlag country={row.country} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
-                          ) : null}
+                          )}
                           <span>{row.country}</span>
                         </div>
-                      </td>
-                      <td className="py-3">
-                        <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASS[row.status]}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="py-3 text-[#5f6f88]">{row.method}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_CLASS[row.status]}>{row.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-[#5f6f88]">{row.method}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#8b99b0]">
+                </TableBody>
+              </Table>
+            </CardContent>
+            <Separator className="bg-[#edf2f8]" />
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 text-xs text-[#8b99b0]">
               <p>Showing 1-10 of 247 transactions</p>
               <div className="flex items-center gap-1">
                 <button className="h-6 w-6 rounded-md border border-[#dce4ef] text-[#9aa8bd]">‹</button>
@@ -289,104 +316,97 @@ export default function DashboardPage() {
                 <button className="h-6 w-6 rounded-md border border-[#dce4ef] text-[#9aa8bd]">›</button>
               </div>
             </div>
-          </article>
+          </Card>
 
+          {/* Right column: chart + top countries */}
           <div className="space-y-5">
-            <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-[#132a52]">Transaction Volume</h3>
-                <div className="flex items-center gap-1 text-[10px]">
-                  <button className="rounded bg-[#ff7448] px-2 py-1 text-white">7D</button>
-                  <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">1M</button>
-                  <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">3M</button>
-                  <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">1Y</button>
+            <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl font-bold text-[#132a52]">Transaction Volume</CardTitle>
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <button className="rounded bg-[#ff7448] px-2 py-1 text-white">7D</button>
+                    <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">1M</button>
+                    <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">3M</button>
+                    <button className="rounded bg-[#eef2f8] px-2 py-1 text-[#7f8ea9]">1Y</button>
+                  </div>
                 </div>
-              </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[215px] rounded-xl border border-[#edf2f8] p-3">
+                  <svg viewBox="0 0 320 170" className="h-full w-full" role="img" aria-label="transaction volume chart">
+                    {[0, 1, 2, 3, 4].map((line) => (
+                      <line key={`h-${line}`} x1="0" y1={line * 42.5} x2="320" y2={line * 42.5} stroke="#e9eef6" strokeDasharray="3 3" />
+                    ))}
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((line) => (
+                      <line key={`v-${line}`} x1={line * 45.7} y1="0" x2={line * 45.7} y2="170" stroke="#eef2f8" strokeDasharray="3 3" />
+                    ))}
+                    <path d={chartPath} fill="none" stroke="#ff7448" strokeWidth="3" strokeLinecap="round" />
+                    {CHART_POINTS.map((value, index) => {
+                      const min = Math.min(...CHART_POINTS);
+                      const max = Math.max(...CHART_POINTS);
+                      const x = (320 / (CHART_POINTS.length - 1)) * index;
+                      const y = 170 - ((value - min) / Math.max(max - min, 1)) * (170 - 22) - 11;
+                      return <circle key={`dot-${value}-${index}`} cx={x} cy={y} r="3" fill="#ff7448" />;
+                    })}
+                  </svg>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="h-[215px] rounded-xl border border-[#edf2f8] p-3">
-                <svg viewBox="0 0 320 170" className="h-full w-full" role="img" aria-label="transaction volume chart">
-                  {[0, 1, 2, 3, 4].map((line) => (
-                    <line
-                      key={`h-${line}`}
-                      x1="0"
-                      y1={line * 42.5}
-                      x2="320"
-                      y2={line * 42.5}
-                      stroke="#e9eef6"
-                      strokeDasharray="3 3"
-                    />
-                  ))}
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((line) => (
-                    <line
-                      key={`v-${line}`}
-                      x1={line * 45.7}
-                      y1="0"
-                      x2={line * 45.7}
-                      y2="170"
-                      stroke="#eef2f8"
-                      strokeDasharray="3 3"
-                    />
-                  ))}
-                  <path d={chartPath} fill="none" stroke="#ff7448" strokeWidth="3" strokeLinecap="round" />
-                  {CHART_POINTS.map((value, index) => {
-                    const min = Math.min(...CHART_POINTS);
-                    const max = Math.max(...CHART_POINTS);
-                    const x = (320 / (CHART_POINTS.length - 1)) * index;
-                    const y = 170 - ((value - min) / Math.max(max - min, 1)) * (170 - 22) - 11;
-                    return <circle key={`dot-${value}-${index}`} cx={x} cy={y} r="3" fill="#ff7448" />;
-                  })}
-                </svg>
-              </div>
-            </article>
-
-            <article className="rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-              <h3 className="text-xl font-bold text-[#132a52] mb-4">Top Countries</h3>
-              <div className="space-y-3">
+            <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl font-bold text-[#132a52]">Top Countries</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 {COUNTRY_SHARE.map((country) => (
                   <div key={country.name}>
                     <div className="mb-1 flex items-center justify-between text-xs text-[#5f6f88]">
                       <span className="flex items-center gap-1.5">
-                        {country.name === "Ghana" || country.name === "Nigeria" || country.name === "Kenya" || country.name === "Togo" ? (
+                        {(country.name === "Ghana" || country.name === "Nigeria" || country.name === "Kenya" || country.name === "Togo") && (
                           <CountryFlag country={country.name} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
-                        ) : null}
+                        )}
                         <span>{country.name}</span>
                       </span>
                       <span>{country.percent}%</span>
                     </div>
                     <div className="h-2 rounded-full bg-[#edf2f8]">
-                      <div
-                        className="h-2 rounded-full bg-[#ff7448]"
-                        style={{ width: `${country.percent}%` }}
-                      />
+                      <div className="h-2 rounded-full bg-[#ff7448]" style={{ width: `${country.percent}%` }} />
                     </div>
                   </div>
                 ))}
-              </div>
-            </article>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
-        <section className="mt-5 rounded-2xl border border-[#e1e8f3] bg-white p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-xl font-bold text-[#132a52]">Recent Activity</h3>
-            <button className="text-xs font-semibold text-[#ff7448]">View All</button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-4">
-            {ACTIVITY.map((activity) => (
-              <div key={activity.title} className="rounded-xl bg-[#f6f9fe] p-3">
-                <div className="mb-2 flex items-start gap-2">
-                  <span className={`mt-1 inline-flex h-2 w-2 rounded-full ${activity.dot}`} />
-                  <p className="text-xs font-medium text-[#42526b]">{activity.title}</p>
+        {/* ── Recent activity ── */}
+        <Card className="mt-5 border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-bold text-[#132a52]">Recent Activity</CardTitle>
+              <button className="text-xs font-semibold text-[#ff7448]">View All</button>
+            </div>
+          </CardHeader>
+          <Separator className="bg-[#edf2f8]" />
+          <CardContent className="pt-4">
+            <div className="grid gap-3 md:grid-cols-4">
+              {ACTIVITY.map((activity) => (
+                <div key={activity.title} className="rounded-xl bg-[#f6f9fe] p-3">
+                  <div className="mb-2 flex items-start gap-2">
+                    <span className={`mt-1 inline-flex h-2 w-2 shrink-0 rounded-full ${activity.dot}`} />
+                    <p className="text-xs font-medium text-[#42526b]">{activity.title}</p>
+                  </div>
+                  <p className="text-[11px] text-[#8b99b0] mb-2">{activity.time}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#ff7448]">{activity.amount}</span>
+                    <button className="text-[10px] font-semibold text-[#4d78d0]">{activity.action}</button>
+                  </div>
                 </div>
-                <p className="text-[11px] text-[#8b99b0] mb-2">{activity.time}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#ff7448]">{activity.amount}</span>
-                  <button className="text-[10px] font-semibold text-[#4d78d0]">{activity.action}</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <footer className="bg-[#0f2b57] px-4 py-12 text-white">

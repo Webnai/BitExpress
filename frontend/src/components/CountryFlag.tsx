@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-const FLAG_ASSETS = {
+const FLAG_SOURCES = {
   Ghana: {
     1: "/Ghana1.png",
     2: "/ghana2.png",
@@ -19,7 +19,7 @@ const FLAG_ASSETS = {
   },
 } as const;
 
-type SupportedCountry = keyof typeof FLAG_ASSETS;
+type SupportedCountry = keyof typeof FLAG_SOURCES;
 
 interface CountryFlagProps {
   country: SupportedCountry;
@@ -34,7 +34,7 @@ export default function CountryFlag({
   size = 24,
   className = "",
 }: CountryFlagProps) {
-  const src = FLAG_ASSETS[country][variant];
+  const src = FLAG_SOURCES[country][variant];
 
   return (
     <Image

@@ -1,231 +1,296 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import CountryFlag from "@/components/CountryFlag";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-const RECIPIENTS = [
-  { name: "Kwame Mensah", country: "Ghana", amount: "0.005 BTC" },
-  { name: "Aisha Ibrahim", country: "Nigeria", amount: "0.008 BTC" },
-  { name: "John Kamau", country: "Kenya", amount: "0.012 BTC" },
-  { name: "Amina Kofi", country: "Togo", amount: "0.003 BTC" },
+import { useWallet } from "@/components/WalletProvider";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { apiGetEstimate, apiSend } from "@/lib/api";
+
+const COUNTRIES = [
+  { code: "GHA", name: "Ghana" },
+  { code: "NGA", name: "Nigeria" },
+  { code: "KEN", name: "Kenya" },
+  { code: "TGO", name: "Togo" },
+  { code: "SEN", name: "Senegal" },
+  { code: "TZA", name: "Tanzania" },
+  { code: "UGA", name: "Uganda" },
 ];
 
-const PAY_METHODS = [
-  { key: "mobile", title: "Mobile Money", icon: "📱" },
-  { key: "bank", title: "Bank Transfer", icon: "🏦" },
-  { key: "crypto", title: "Crypto Wallet", icon: "₿" },
+const PAYOUT_METHODS = [
+  { value: "mobile_money", label: "Mobile Money" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "crypto_wallet", label: "Crypto Wallet" },
 ] as const;
 
-const RATE_NGN_PER_BTC = 45230500;
+type PayoutMethod = (typeof PAYOUT_METHODS)[number]["value"];
 
 export default function SendPage() {
-  const [country, setCountry] = useState("Ghana");
-  const [phone, setPhone] = useState("+233 24 123 4567");
-  const [amountBtc, setAmountBtc] = useState("0.01");
-  const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("crypto");
+  const { address } = useWallet();
+  const [receiverWallet, setReceiverWallet] = useState("");
+  const [amountUsd, setAmountUsd] = useState("20");
+  const [sourceCountry, setSourceCountry] = useState("GHA");
+  const [destCountry, setDestCountry] = useState("NGA");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [stacksTxId, setStacksTxId] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>("mobile_money");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [estimateText, setEstimateText] = useState<string | null>(null);
+  const [transferResult, setTransferResult] = useState<{
+    id: string;
+    status: string;
+    fee: number;
+    netAmount: number;
+  } | null>(null);
 
-  const amount = Number.parseFloat(amountBtc) || 0;
-  const fee = amount * 0.01;
-  const networkFee = 0.00005;
-  const total = amount + fee + networkFee;
+  const parsedAmount = Number.parseFloat(amountUsd) || 0;
+  const feeUsd = useMemo(() => (parsedAmount * 1) / 100, [parsedAmount]);
+  const totalUsd = useMemo(() => parsedAmount + feeUsd, [parsedAmount, feeUsd]);
 
-  const recipientGets = useMemo(() => amount - fee, [amount, fee]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchEstimate() {
+      if (parsedAmount <= 0) {
+        setEstimateText(null);
+        return;
+      }
+      try {
+        const data = await apiGetEstimate(parsedAmount);
+        const estimate = data.estimates[destCountry];
+        if (!cancelled && estimate) {
+          const rounded = estimate.localAmount.toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          });
+          setEstimateText(`Recipient estimate: ${rounded} ${estimate.currency}`);
+        }
+      } catch {
+        if (!cancelled) setEstimateText(null);
+      }
+    }
+
+    void fetchEstimate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parsedAmount, destCountry]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!address) {
+      toast.error("Connect your wallet first.");
+      return;
+    }
+
+    if (!receiverWallet.trim()) {
+      toast.error("Receiver wallet is required.");
+      return;
+    }
+
+    if (parsedAmount < 1) {
+      toast.error("Amount must be at least $1.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await apiSend({
+        senderWallet: address,
+        receiverWallet: receiverWallet.trim(),
+        amountUsd: parsedAmount,
+        sourceCountry,
+        destCountry,
+        recipientPhone: recipientPhone.trim() || undefined,
+        recipientName: recipientName.trim() || undefined,
+        payoutMethod,
+        stacksTxId: stacksTxId.trim() || undefined,
+      });
+
+      setTransferResult({
+        id: response.transfer.id,
+        status: response.transfer.status,
+        fee: response.transfer.fee,
+        netAmount: response.transfer.netAmount,
+      });
+
+      toast.success("Transfer created successfully.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send transfer.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f3f6fb]">
-      <div className="max-w-[1180px] mx-auto px-4 py-8 md:px-6">
-        <div className="grid gap-5 xl:grid-cols-[2fr_1fr]">
-          <section className="rounded-2xl border border-[#e1e8f3] bg-white p-6 shadow-[0_6px_20px_rgba(15,23,42,0.05)] md:p-7">
-            <h1 className="text-4xl font-bold text-[#132a52]">Send Money</h1>
-            <p className="mt-2 text-sm text-[#7f8ea9]">Transfer funds securely across Africa</p>
-
-            <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Recipient Information</p>
-
-              <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="text-[11px] text-[#7f8ea9] block mb-1">Country</label>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CountryFlag country={country as "Ghana" | "Nigeria" | "Kenya" | "Togo"} variant={1} size={20} className="h-5 w-5 rounded-sm object-cover" />
+      <div className="mx-auto max-w-[1080px] px-4 py-8 md:px-6 md:py-10">
+        <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)]">
+            <CardHeader>
+              <CardTitle className="text-3xl text-[#132a52]">Send Money</CardTitle>
+              <CardDescription className="text-[#6f7d95]">
+                Create a remittance transfer with on-chain compatible metadata.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="senderWallet">Sender wallet</Label>
+                    <Input id="senderWallet" value={address ?? "Not connected"} readOnly />
                   </div>
-                  <select
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
-                  >
-                    <option>Ghana</option>
-                    <option>Nigeria</option>
-                    <option>Kenya</option>
-                    <option>Togo</option>
-                  </select>
-                  <span className="text-[#8b99b0]">▾</span>
-                </div>
-              </div>
-
-              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="text-[11px] text-[#7f8ea9] block mb-1">Phone Number</label>
-                <div className="flex items-center justify-between gap-2">
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
-                  />
-                  <span className="text-[#8b99b0]">ⓘ</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">You Send</p>
-
-              <div className="mt-3 rounded-xl border border-[#dbe4f0] bg-[#fbfcff] px-4 py-4">
-                <div className="flex items-center justify-between gap-3">
-                  <input
-                    value={amountBtc}
-                    onChange={(e) => setAmountBtc(e.target.value)}
-                    className="w-36 bg-transparent text-4xl font-bold text-[#132a52] outline-none"
-                  />
-                  <div className="rounded-full bg-[#eef2f8] p-1 text-[10px] text-[#5f6f88] font-semibold h-fit">
-                    <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">BTC</span>
-                    <span className="px-3 py-1">sBTC</span>
+                  <div className="space-y-2">
+                    <Label htmlFor="receiverWallet">Receiver wallet</Label>
+                    <Input
+                      id="receiverWallet"
+                      value={receiverWallet}
+                      onChange={(e) => setReceiverWallet(e.target.value)}
+                      placeholder="SP..."
+                      required
+                    />
                   </div>
                 </div>
-              </div>
-              <p className="mt-2 text-[11px] font-semibold text-[#ff7448]">Send max available: 0.045 BTC</p>
-            </div>
 
-            <div className="mt-7">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Payment Method</p>
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
-                {PAY_METHODS.map((item) => {
-                  const active = method === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setMethod(item.key)}
-                      className={`rounded-xl border px-4 py-4 text-center transition-colors ${
-                        active
-                          ? "border-[#ff7448] bg-[#fff6f2]"
-                          : "border-[#dfe6f2] bg-white hover:bg-[#fbfcff]"
-                      }`}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="amountUsd">Amount (USD)</Label>
+                    <Input
+                      id="amountUsd"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      step="0.01"
+                      value={amountUsd}
+                      onChange={(e) => setAmountUsd(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payoutMethod">Payout method</Label>
+                    <select
+                      id="payoutMethod"
+                      className="flex h-10 w-full rounded-md border border-[#dbe4f0] bg-white px-3 py-2 text-sm text-[#132a52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff7448]"
+                      value={payoutMethod}
+                      onChange={(e) => setPayoutMethod(e.target.value as PayoutMethod)}
                     >
-                      <p className="text-lg mb-1">{item.icon}</p>
-                      <p className={`text-sm font-semibold ${active ? "text-[#ff7448]" : "text-[#42526b]"}`}>
-                        {item.title}
-                      </p>
-                      {active && <p className="text-[10px] text-[#ff7448] mt-1">✓</p>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      {PAYOUT_METHODS.map((method) => (
+                        <option key={method.value} value={method.value}>
+                          {method.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            <div className="mt-7">
-              <h2 className="text-sm font-semibold text-[#132a52]">Recent Recipients</h2>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {RECIPIENTS.map((entry) => (
-                  <button key={entry.name} className="rounded-xl bg-[#f6f9fe] px-3 py-3 text-left hover:bg-[#edf3fd]">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#8aa4d3] to-[#4d78d0] grid place-items-center text-[11px] text-white font-bold">
-                        {entry.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-[#132a52]">{entry.name}</p>
-                        <div className="flex items-center gap-1 text-[11px] text-[#8b99b0]">
-                          <CountryFlag country={entry.country as "Ghana" | "Nigeria" | "Kenya" | "Togo"} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
-                          <span>{entry.country}</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-[#ff7448]">{entry.amount}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceCountry">Source country</Label>
+                    <select
+                      id="sourceCountry"
+                      className="flex h-10 w-full rounded-md border border-[#dbe4f0] bg-white px-3 py-2 text-sm text-[#132a52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff7448]"
+                      value={sourceCountry}
+                      onChange={(e) => setSourceCountry(e.target.value)}
+                    >
+                      {COUNTRIES.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="destCountry">Destination country</Label>
+                    <select
+                      id="destCountry"
+                      className="flex h-10 w-full rounded-md border border-[#dbe4f0] bg-white px-3 py-2 text-sm text-[#132a52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff7448]"
+                      value={destCountry}
+                      onChange={(e) => setDestCountry(e.target.value)}
+                    >
+                      {COUNTRIES.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-          <aside className="rounded-2xl border border-[#e1e8f3] bg-white p-6 h-fit shadow-[0_6px_20px_rgba(15,23,42,0.05)]">
-            <h2 className="text-[1.8rem] font-bold text-[#132a52]">Transaction Summary</h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="recipientName">Recipient name (optional)</Label>
+                    <Input
+                      id="recipientName"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      placeholder="Kwame Mensah"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="recipientPhone">Recipient phone (optional)</Label>
+                    <Input
+                      id="recipientPhone"
+                      value={recipientPhone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      placeholder="+2348012345678"
+                    />
+                  </div>
+                </div>
 
-            <div className="mt-6 rounded-xl bg-[#f6f9fe] p-4">
-              <p className="text-xs text-[#7f8ea9]">Current Rate</p>
-              <p className="mt-1 text-3xl font-bold text-[#132a52]">1 BTC = ₦{RATE_NGN_PER_BTC.toLocaleString()}</p>
-              <p className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">
-                Rate locked for 5:00
-              </p>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stacksTxId">Stacks Contract Tx ID (optional)</Label>
+                  <Input
+                    id="stacksTxId"
+                    value={stacksTxId}
+                    onChange={(e) => setStacksTxId(e.target.value)}
+                    placeholder="0x..."
+                  />
+                </div>
 
-            <div className="mt-6 space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">You send</span>
-                <span className="font-semibold text-[#42526b]">{amount.toFixed(5)} BTC</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Recipient gets</span>
-                <span className="font-semibold text-[#42526b]">{Math.max(recipientGets, 0).toFixed(5)} BTC</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Transaction fee (~1%)</span>
-                <span className="font-semibold text-[#42526b]">{fee.toFixed(5)} BTC</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Network fee</span>
-                <span className="font-semibold text-[#42526b]">{networkFee.toFixed(5)} BTC</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3">
-                <span className="font-semibold text-[#132a52]">Total cost</span>
-                <span className="font-bold text-[#132a52]">{total.toFixed(5)} BTC</span>
-              </div>
-            </div>
+                <div className="rounded-xl bg-[#f6f9fe] p-4 text-sm text-[#42526b]">
+                  <p>Platform fee (1%): ${feeUsd.toFixed(2)}</p>
+                  <p>Total debit: ${totalUsd.toFixed(2)}</p>
+                  {estimateText ? <p className="mt-1 text-[#ff7448]">{estimateText}</p> : null}
+                </div>
 
-            <div className="mt-5 rounded-xl bg-[#eef7ff] p-3 text-xs text-[#42526b]">
-              ⚡ Arrives in 5-15 minutes
-            </div>
-            <p className="mt-3 text-xs text-[#7f8ea9]">🛡️ Secured by Bitcoin blockchain</p>
+                <Button type="submit" className="w-full" disabled={isSubmitting || !address}>
+                  {isSubmitting ? "Sending..." : "Send Money"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-            <div className="mt-5 space-y-2">
-              <button className="w-full rounded-xl bg-[#ff7448] px-4 py-3 text-sm font-semibold text-white hover:opacity-95">
-                Send Money
-              </button>
-              <button className="w-full rounded-xl border border-[#ff9c7f] bg-white px-4 py-3 text-sm font-semibold text-[#ff7448]">
-                Save as Draft
-              </button>
-            </div>
-          </aside>
+          <Card className="border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] h-fit">
+            <CardHeader>
+              <CardTitle className="text-2xl text-[#132a52]">Transfer Result</CardTitle>
+              <CardDescription className="text-[#6f7d95]">
+                After submission, use this ID on the Receive page to claim funds.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {transferResult ? (
+                <div className="space-y-3 text-sm">
+                  <div className="rounded-md bg-[#f6f9fe] p-3">
+                    <p className="text-[#6f7d95]">Transfer ID</p>
+                    <p className="font-mono text-[#132a52] break-all">{transferResult.id}</p>
+                  </div>
+                  <p className="text-[#42526b]">Status: <span className="font-semibold">{transferResult.status}</span></p>
+                  <p className="text-[#42526b]">Fee: ${transferResult.fee.toFixed(2)}</p>
+                  <p className="text-[#42526b]">Net amount: ${transferResult.netAmount.toFixed(2)}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-[#8b99b0]">No transfer submitted yet.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <footer className="bg-[#0f2b57] px-4 py-12 text-white">
-        <div className="max-w-[1180px] mx-auto grid gap-8 md:grid-cols-4 text-sm">
-          <div>
-            <p className="text-2xl font-bold mb-3">₿ AfriSend</p>
-            <p className="text-white/80">Send money across Africa instantly with Bitcoin-powered remittance.</p>
-          </div>
-          <div>
-            <p className="font-semibold mb-3">Product</p>
-            <p className="text-white/80 mb-2">How it Works</p>
-            <p className="text-white/80 mb-2">Pricing</p>
-            <p className="text-white/80">Countries</p>
-          </div>
-          <div>
-            <p className="font-semibold mb-3">Company</p>
-            <p className="text-white/80 mb-2">About</p>
-            <p className="text-white/80 mb-2">Blog</p>
-            <p className="text-white/80">Careers</p>
-          </div>
-          <div>
-            <p className="font-semibold mb-3">Support</p>
-            <p className="text-white/80 mb-2">Help Center</p>
-            <p className="text-white/80 mb-2">Contact</p>
-            <p className="text-white/80">FAQ</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
