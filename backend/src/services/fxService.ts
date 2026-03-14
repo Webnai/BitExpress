@@ -1,3 +1,5 @@
+import axios from "axios";
+
 import { SUPPORTED_COUNTRIES } from "../config";
 
 // Simulated FX rates (BTC per 1 unit of local currency)
@@ -17,6 +19,17 @@ const USD_RATES: Record<string, number> = {
   TZS: 2600, // 1 USD = 2600 TZS
   UGX: 3800, // 1 USD = 3800 UGX
 };
+
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface LiveRateSnapshot {
+  btcUsdPrice: number;
+  usdRates: Record<string, number>;
+  updatedAt: string;
+}
+
+let cachedSnapshot: LiveRateSnapshot | null = null;
+let cachedAt = 0;
 
 export interface ExchangeRateResponse {
   from: string;
@@ -42,6 +55,48 @@ function getUsdRate(currency: string): number {
     throw new Error(`Unsupported currency: ${currency}`);
   }
   return rate;
+}
+
+async function fetchLiveRateSnapshot(): Promise<LiveRateSnapshot> {
+  if (cachedSnapshot && Date.now() - cachedAt < RATE_CACHE_TTL_MS) {
+    return cachedSnapshot;
+  }
+
+  try {
+    const [btcPriceResponse, usdRatesResponse] = await Promise.all([
+      axios.get("https://api.coingecko.com/api/v3/simple/price", {
+        params: { ids: "bitcoin", vs_currencies: "usd" },
+        timeout: 5000,
+      }),
+      axios.get("https://open.er-api.com/v6/latest/USD", {
+        timeout: 5000,
+      }),
+    ]);
+
+    const btcUsdPrice = Number(btcPriceResponse.data?.bitcoin?.usd);
+    const rates = usdRatesResponse.data?.rates as Record<string, number> | undefined;
+
+    if (!btcUsdPrice || !rates) {
+      throw new Error("Invalid live FX response");
+    }
+
+    cachedSnapshot = {
+      btcUsdPrice,
+      usdRates: rates,
+      updatedAt: new Date().toISOString(),
+    };
+    cachedAt = Date.now();
+    return cachedSnapshot;
+  } catch {
+    const fallbackSnapshot: LiveRateSnapshot = {
+      btcUsdPrice: MOCK_BTC_PRICE_USD,
+      usdRates: USD_RATES,
+      updatedAt: new Date().toISOString(),
+    };
+    cachedSnapshot = fallbackSnapshot;
+    cachedAt = Date.now();
+    return fallbackSnapshot;
+  }
 }
 
 export function getExchangeRate(
@@ -103,6 +158,52 @@ export function getAllRates(): Record<string, ExchangeRateResponse> {
     if (btcRate) {
       rates[code] = btcRate;
     }
+  }
+
+  return rates;
+}
+
+export async function getExchangeRateLive(
+  fromCurrency: string,
+  toCurrency: string
+): Promise<ExchangeRateResponse> {
+  const snapshot = await fetchLiveRateSnapshot();
+  const fromUsd = snapshot.usdRates[fromCurrency] ?? getUsdRate(fromCurrency);
+  const toUsd = snapshot.usdRates[toCurrency] ?? getUsdRate(toCurrency);
+
+  return {
+    from: fromCurrency,
+    to: toCurrency,
+    rate: toUsd / fromUsd,
+    btcUsdPrice: snapshot.btcUsdPrice,
+    updatedAt: snapshot.updatedAt,
+  };
+}
+
+export async function getBtcToLocalRateLive(
+  countryCode: string
+): Promise<ExchangeRateResponse | null> {
+  const country = SUPPORTED_COUNTRIES[countryCode];
+  if (!country) return null;
+
+  const snapshot = await fetchLiveRateSnapshot();
+  const usdRate = snapshot.usdRates[country.currency] ?? getUsdRate(country.currency);
+
+  return {
+    from: "BTC",
+    to: country.currency,
+    rate: snapshot.btcUsdPrice * usdRate,
+    btcUsdPrice: snapshot.btcUsdPrice,
+    updatedAt: snapshot.updatedAt,
+  };
+}
+
+export async function getAllRatesLive(): Promise<Record<string, ExchangeRateResponse>> {
+  const rates: Record<string, ExchangeRateResponse> = {};
+
+  for (const [code] of Object.entries(SUPPORTED_COUNTRIES)) {
+    const rate = await getBtcToLocalRateLive(code);
+    if (rate) rates[code] = rate;
   }
 
   return rates;

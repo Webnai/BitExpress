@@ -1,10 +1,8 @@
 import { Router, Request, Response } from "express";
 import {
-  getExchangeRate,
-  getBtcToLocalRate,
-  getAllRates,
-  microStxToUsd,
-  usdToMicroStx,
+  getExchangeRateLive,
+  getBtcToLocalRateLive,
+  getAllRatesLive,
 } from "../services/fxService";
 import { SUPPORTED_COUNTRIES } from "../config";
 
@@ -14,8 +12,8 @@ const router = Router();
  * GET /api/exchange-rate
  * Get exchange rates for all supported countries.
  */
-router.get("/", (_req: Request, res: Response) => {
-  const rates = getAllRates();
+router.get("/", async (_req: Request, res: Response) => {
+  const rates = await getAllRatesLive();
   return res.json({
     rates,
     supportedCountries: Object.entries(SUPPORTED_COUNTRIES).map(([code, country]) => ({
@@ -33,9 +31,9 @@ router.get("/", (_req: Request, res: Response) => {
  * GET /api/exchange-rate/:country
  * Get exchange rate for a specific country (BTC → local currency).
  */
-router.get("/:country", (req: Request, res: Response) => {
+router.get("/:country", async (req: Request, res: Response) => {
   const { country } = req.params;
-  const rate = getBtcToLocalRate(country.toUpperCase());
+  const rate = await getBtcToLocalRateLive(country.toUpperCase());
 
   if (!rate) {
     return res.status(404).json({ error: `Unsupported country: ${country}` });
@@ -48,7 +46,7 @@ router.get("/:country", (req: Request, res: Response) => {
  * POST /api/exchange-rate/convert
  * Convert amount between currencies.
  */
-router.post("/convert", (req: Request, res: Response) => {
+router.post("/convert", async (req: Request, res: Response) => {
   const { fromCurrency, toCurrency, amount } = req.body;
 
   if (!fromCurrency || !toCurrency || !amount) {
@@ -58,7 +56,7 @@ router.post("/convert", (req: Request, res: Response) => {
   }
 
   try {
-    const rateInfo = getExchangeRate(fromCurrency, toCurrency);
+    const rateInfo = await getExchangeRateLive(fromCurrency, toCurrency);
     const convertedAmount = Number(amount) * rateInfo.rate;
 
     return res.json({
@@ -79,7 +77,7 @@ router.post("/convert", (req: Request, res: Response) => {
  * GET /api/exchange-rate/estimate/:amountUsd
  * Estimate transfer amounts in local currencies for a given USD amount.
  */
-router.get("/estimate/:amountUsd", (req: Request, res: Response) => {
+router.get("/estimate/:amountUsd", async (req: Request, res: Response) => {
   const amountUsd = Number(req.params.amountUsd);
   if (isNaN(amountUsd) || amountUsd <= 0) {
     return res.status(400).json({ error: "Invalid amount" });
@@ -89,11 +87,8 @@ router.get("/estimate/:amountUsd", (req: Request, res: Response) => {
 
   for (const [code, country] of Object.entries(SUPPORTED_COUNTRIES)) {
     try {
-      const rate = getBtcToLocalRate(code);
+      const rate = await getBtcToLocalRateLive(code);
       if (rate) {
-        // Convert USD to local currency
-        // rate.rate = local_currency per BTC
-        // btcUsdPrice = USD per BTC
         const localPerUsd = rate.rate / rate.btcUsdPrice;
         estimates[code] = {
           localAmount: amountUsd * localPerUsd,
