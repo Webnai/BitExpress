@@ -85,3 +85,8 @@ export const CONTRACT_NAME = "remittance";
 // API configuration
 export const PORT = parseInt(process.env.PORT || "4000", 10);
 export const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
+
+// Firestore configuration
+// Set USE_FIRESTORE=true to force Firestore mode.
+// Provide either GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON.
+export const USE_FIRESTORE = process.env.USE_FIRESTORE === "true";

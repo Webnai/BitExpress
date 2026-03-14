@@ -53,7 +53,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     const transferId = uuidv4();
 
-    const transfer = db.createTransfer({
+    const transfer = await db.createTransfer({
       id: transferId,
       sender: senderWallet,
       receiver: receiverWallet,
@@ -71,6 +71,18 @@ router.post("/", async (req: Request, res: Response) => {
       status: "pending",
       createdAt: new Date().toISOString(),
     });
+
+    await Promise.all([
+      db.upsertUser({
+        walletAddress: senderWallet,
+        country: sourceCountry,
+      }),
+      db.upsertUser({
+        walletAddress: receiverWallet,
+        country: destCountry,
+        phoneNumber: recipientPhone,
+      }),
+    ]);
 
     // Send notifications
     if (recipientPhone) {

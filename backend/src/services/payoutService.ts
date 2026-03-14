@@ -37,9 +37,8 @@ async function simulateMobileMoneyPayout(
     setTimeout(resolve, 50 + Math.random() * 150)
   );
 
-  // Simulate 95% success rate for demo purposes.
-  // In production, use actual API responses from the mobile money provider.
-  const success = Math.random() > 0.05;
+  // Keep tests deterministic; use probabilistic simulation only outside test mode.
+  const success = process.env.NODE_ENV === "test" ? true : Math.random() > 0.05;
   const reference = `BX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   if (!success) {

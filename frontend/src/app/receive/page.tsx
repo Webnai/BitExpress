@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Copy,
@@ -98,6 +99,7 @@ function toFlagCountry(name: string | undefined): FlagCountry | null {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ReceivePage() {
   const { address } = useWallet();
+  const searchParams = useSearchParams();
   const [transferId, setTransferId] = useState("");
   const [claimCode, setClaimCode] = useState("");
   const [transaction, setTransaction] = useState<LoadedTransaction | null>(null);
@@ -108,6 +110,7 @@ export default function ReceivePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
 
   // Fetch live BTC/USD price from backend exchange rate service
   useEffect(() => {
@@ -124,19 +127,34 @@ export default function ReceivePage() {
     if (!address) return;
     apiGetWalletHistory(address)
       .then((data) => {
-        setRecentReceives(
-          data.received.slice(0, 4).map((r) => ({
+        const received = data.received.slice(0, 4).map((r) => ({
             id: r.id,
             counterpartyWallet: r.counterpartyWallet,
             counterpartyName: r.counterpartyName,
             amountUsd: r.amountUsd,
             countryName: r.countryName,
             createdAt: r.createdAt,
-          }))
-        );
+          }));
+
+        setRecentReceives(received);
+
+        if (!hasAutoLoaded && !searchParams.get("id") && received.length > 0) {
+          setTransferId(received[0].id);
+          void fetchTransaction(received[0].id);
+          setHasAutoLoaded(true);
+        }
       })
       .catch(() => {});
-  }, [address]);
+  }, [address, hasAutoLoaded, searchParams]);
+
+  // Load transfer from query string: /receive?id=TX-...
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id || hasAutoLoaded) return;
+    setTransferId(id);
+    void fetchTransaction(id);
+    setHasAutoLoaded(true);
+  }, [searchParams, hasAutoLoaded]);
 
   async function fetchTransaction(id: string) {
     setIsLoading(true);
@@ -198,7 +216,25 @@ export default function ReceivePage() {
   const feeBtc = transaction ? transaction.fee / btcUsdPrice : 0;
   const isClaimed = transaction?.status === "claimed";
   const flagCountry = toFlagCountry(transaction?.sourceCountry.name);
-  const senderLabel = transaction?.recipientName ?? truncateAddress(transaction?.sender ?? "");
+  const senderLabel = transaction
+    ? transaction.recipientName ?? truncateAddress(transaction.sender)
+    : "No transfer loaded";
+  const sourceCountryLabel =
+    transaction?.sourceCountry.name ?? transaction?.sourceCountry.code ?? "Unknown";
+  const createdDate = transaction
+    ? new Date(transaction.createdAt).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "--";
+  const createdTime = transaction
+    ? `${new Date(transaction.createdAt).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })} GMT`
+    : "--";
+  const statusLabel = !transaction ? "Not loaded" : isClaimed ? "Claimed" : "Ready to Claim";
 
   const withdrawalMethods: {
     method: WithdrawalMethod;
@@ -238,54 +274,6 @@ export default function ReceivePage() {
     },
   ];
 
-  // ── Empty / Search state ─────────────────────────────────────────────────────
-  if (!transaction) {
-    return (
-      <div className="min-h-screen bg-[#f3f6fb] flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[#ff7448]/10 mb-4">
-              <Wallet className="w-6 h-6 text-[#ff7448]" />
-            </div>
-            <h1 className="text-2xl font-bold text-[#132a52]">Receive Money</h1>
-            <p className="text-[#6f7d95] mt-1 text-sm">
-              Enter a transfer ID to claim your funds
-            </p>
-          </div>
-          <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.06)] p-6">
-            <form onSubmit={loadTransaction} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="transferId">Transfer ID</Label>
-                <Input
-                  id="transferId"
-                  value={transferId}
-                  onChange={(e) => setTransferId(e.target.value)}
-                  placeholder="e.g. TX-BTC-458932"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="claimCode">
-                  Claim Code{" "}
-                  <span className="text-[#8b99b0] font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="claimCode"
-                  value={claimCode}
-                  onChange={(e) => setClaimCode(e.target.value)}
-                  placeholder="Optional claim code"
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Loading…" : "Load Transfer"}
-              </Button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ── Main loaded UI ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f3f6fb]">
@@ -309,7 +297,7 @@ export default function ReceivePage() {
                   <Check className="w-3 h-3" /> Verified
                 </span>
               </div>
-            ) : (
+            ) : transaction ? (
               <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl px-4 py-3">
                 <div className="flex items-center gap-2.5 text-[#92400e] font-semibold text-sm">
                   <Clock className="w-5 h-5 text-[#f59e0b]" />
@@ -317,6 +305,16 @@ export default function ReceivePage() {
                 </div>
                 <span className="text-xs bg-[#ff7448] text-white px-2.5 py-0.5 rounded-full font-semibold">
                   Pending
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-[#eff6ff] border border-[#bfdbfe] rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5 text-[#1d4ed8] font-semibold text-sm">
+                  <Clock className="w-5 h-5 text-[#3b82f6]" />
+                  Load a transfer to view claim details
+                </div>
+                <span className="text-xs bg-[#3b82f6] text-white px-2.5 py-0.5 rounded-full font-semibold">
+                  Waiting
                 </span>
               </div>
             )}
@@ -333,15 +331,15 @@ export default function ReceivePage() {
                   <div>
                     <p className="font-semibold text-[#132a52]">{senderLabel}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      {flagCountry ? (
+                      {transaction && flagCountry ? (
                         <CountryFlag country={flagCountry} size={16} />
                       ) : (
-                        <span className="text-base">{transaction.sourceCountry.name ?? transaction.sourceCountry.code}</span>
+                        <span className="text-base">{sourceCountryLabel}</span>
                       )}
-                      <span className="text-sm text-[#6f7d95]">
-                        {transaction.sourceCountry.name ?? transaction.sourceCountry.code}
-                      </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] ml-0.5" title="verified" />
+                      <span className="text-sm text-[#6f7d95]">{sourceCountryLabel}</span>
+                      {transaction && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] ml-0.5" title="verified" />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -356,7 +354,7 @@ export default function ReceivePage() {
                   <div>
                     <p className="text-4xl font-bold text-[#132a52] tracking-tight">{formatBtc(btcAmount)}</p>
                     <p className="text-sm text-[#6f7d95] mt-1">
-                      ≈ ${transaction.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      ≈ ${transaction?.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "0.00"} USD
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
@@ -372,7 +370,7 @@ export default function ReceivePage() {
                 <div className="rounded-xl bg-[#f6f9fe] p-3 col-span-2 relative">
                   <p className="text-xs text-[#8b99b0] mb-1">Transaction ID</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-mono font-semibold text-[#132a52] break-all flex-1">{transaction.id}</p>
+                    <p className="text-sm font-mono font-semibold text-[#132a52] break-all flex-1">{transaction?.id ?? "--"}</p>
                     <button
                       onClick={copyTxId}
                       className="flex-shrink-0 text-[#6f7d95] hover:text-[#ff7448] transition-colors p-1"
@@ -389,20 +387,8 @@ export default function ReceivePage() {
                     <p className="text-xs text-[#8b99b0]">Date &amp; Time</p>
                     <Clock className="w-3.5 h-3.5 text-[#c0cddf]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#132a52]">
-                    {new Date(transaction.createdAt).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="text-xs text-[#6f7d95]">
-                    {new Date(transaction.createdAt).toLocaleTimeString("en-GB", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    GMT
-                  </p>
+                  <p className="text-sm font-semibold text-[#132a52]">{createdDate}</p>
+                  <p className="text-xs text-[#6f7d95]">{createdTime}</p>
                 </div>
 
                 {/* Network */}
@@ -440,7 +426,7 @@ export default function ReceivePage() {
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isClaimed ? "bg-[#10b981]" : "bg-[#ff7448]"}`} />
                     <p className="text-sm font-semibold text-[#132a52]">
-                      {isClaimed ? "Claimed" : "Ready to Claim"}
+                      {statusLabel}
                     </p>
                   </div>
                 </div>
@@ -525,7 +511,7 @@ export default function ReceivePage() {
                   <span className="text-lg font-semibold">BTC</span>
                 </p>
                 <p className="text-sm text-[#6f7d95] mt-1">
-                  ${transaction.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                  ${transaction?.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "0.00"} USD
                 </p>
                 <p className="text-xs text-[#10b981] mt-1 font-semibold">▲ +2.3% (24h)</p>
               </div>
@@ -597,16 +583,18 @@ export default function ReceivePage() {
                   <Button
                     className="w-full h-11 text-base font-semibold"
                     onClick={claimFunds}
-                    disabled={!address || isClaiming || transaction.status !== "pending"}
+                    disabled={!transaction || !address || isClaiming || transaction.status !== "pending"}
                   >
                     {isClaiming ? "Claiming…" : "Claim Funds"}
                   </Button>
                   <button
                     className="w-full border border-[#ff7448] text-[#ff7448] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#fff8f6] transition-colors"
                     onClick={() => {
+                      if (!transaction) return;
                       const txId = transaction.stacksTxId ?? transaction.id;
                       window.open(`https://explorer.stacks.co/txid/${txId}`, "_blank");
                     }}
+                    disabled={!transaction}
                   >
                     View Transaction
                   </button>

@@ -9,11 +9,11 @@ const router = Router();
  * GET /api/transaction/wallet/:address
  * Get all transfers for a wallet address.
  */
-router.get("/wallet/:address", (req: Request, res: Response) => {
+router.get("/wallet/:address", async (req: Request, res: Response) => {
   const { address } = req.params;
 
-  const sent = db.getTransfersBySender(address);
-  const received = db.getTransfersByReceiver(address);
+  const sent = await db.getTransfersBySender(address);
+  const received = await db.getTransfersByReceiver(address);
 
   return res.json({
     sent: sent
@@ -63,10 +63,10 @@ router.get("/wallet/:address", (req: Request, res: Response) => {
  * GET /api/transaction/:id
  * Retrieve details for a specific transfer.
  */
-router.get("/:id", (req: Request, res: Response) => {
+router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const transfer = db.getTransfer(id);
+  const transfer = await db.getTransfer(id);
   if (!transfer) {
     return res.status(404).json({ error: "Transaction not found" });
   }
@@ -117,7 +117,7 @@ router.post("/:id/refund", async (req: Request, res: Response) => {
   const { id } = req.params;
   const { senderWallet } = req.body;
 
-  const transfer = db.getTransfer(id);
+  const transfer = await db.getTransfer(id);
   if (!transfer) {
     return res.status(404).json({ error: "Transaction not found" });
   }
@@ -141,7 +141,7 @@ router.post("/:id/refund", async (req: Request, res: Response) => {
     });
   }
 
-  db.updateTransfer(id, {
+  await db.updateTransfer(id, {
     status: "refunded",
     refundedAt: new Date().toISOString(),
   });

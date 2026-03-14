@@ -21,7 +21,7 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
-    const transfer = db.getTransfer(transferId);
+    const transfer = await db.getTransfer(transferId);
     if (!transfer) {
       return res.status(404).json({ error: "Transfer not found" });
     }
@@ -60,10 +60,17 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Update transfer status
-    const updatedTransfer = db.updateTransfer(transferId, {
+    const updatedTransfer = await db.updateTransfer(transferId, {
       status: "claimed",
       claimedAt: new Date().toISOString(),
       mobileMoneyRef: payoutResult.reference,
+    });
+
+    await db.upsertUser({
+      walletAddress: receiverWallet,
+      country: transfer.destCountry,
+      phoneNumber: transfer.recipientPhone,
+      kycStatus: "pending",
     });
 
     // Notify sender
