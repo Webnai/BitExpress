@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { WalletProvider } from "@/components/WalletProvider";
 import WalletRouteGuard from "@/components/WalletRouteGuard";
 import { Toaster } from "sonner";
@@ -27,6 +28,7 @@ export default function RootLayout({
           <WalletRouteGuard>
             <main>{children}</main>
           </WalletRouteGuard>
+          <Footer />
           <Toaster richColors position="top-right" />
         </WalletProvider>
       </body>

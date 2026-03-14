@@ -158,7 +158,13 @@ export async function apiGetWalletBalance(address: string) {
 export async function apiGetExchangeRates() {
   const res = await fetch(`${API_BASE_URL}/api/exchange-rate`);
   return parseJsonResponse<{
-    rates: Record<string, unknown>;
+    rates: Record<string, {
+      from: string;
+      to: string;
+      rate: number;
+      btcUsdPrice: number;
+      updatedAt: string;
+    }>;
     supportedCountries: Array<{
       code: string;
       name: string;

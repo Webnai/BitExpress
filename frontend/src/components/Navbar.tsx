@@ -9,8 +9,9 @@ import { toast } from "sonner";
 const PUBLIC_NAV = [{ href: "/", label: "Home" }];
 const PROTECTED_NAV = [
   { href: "/send", label: "Send Money" },
+  { href: "/track", label: "Track Transfer" },
+  { href: "/dashboard", label: "History" },
   { href: "/receive", label: "Receive Money" },
-  { href: "/dashboard", label: "Dashboard" },
 ];
 
 /** Deterministic hue from an address string for avatar color. */
@@ -112,31 +113,39 @@ export default function Navbar() {
         </div>
 
         {/* Desktop wallet area */}
-        <div className="hidden md:block">
+        <div className="hidden md:flex items-center gap-3">
           {connected && address ? (
-            <div className="flex items-center gap-2.5">
+            <>
+              {/* Notification bell */}
+              <button className="relative p-2 rounded-lg text-[#5f6f88] hover:text-[#132a52] hover:bg-[#f6f9fe] transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
               <WalletAvatar address={address} size={32} />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[11px] font-semibold text-[#132a52]">{walletName}</span>
-                <span className="text-[11px] text-[#7f8ea9] font-mono">{displayAddress}</span>
-              </div>
+              <Link
+                href="/settings"
+                className={`text-sm font-medium transition-colors ${
+                  pathname === "/settings" ? "text-[var(--color-primary)]" : "text-[#5f6f88] hover:text-[#132a52]"
+                }`}
+              >
+                Settings
+              </Link>
               <button
-                className="ml-1 rounded-lg border border-[#e1e8f3] bg-white px-3 py-1.5 text-xs font-semibold text-[#5f6f88] hover:bg-[#f6f9fe] hover:text-[#132a52] transition-colors"
+                className="rounded-lg border border-[#e1e8f3] bg-white px-3 py-1.5 text-xs font-semibold text-[#5f6f88] hover:bg-[#f6f9fe] hover:text-[#132a52] transition-colors"
                 onClick={disconnectWallet}
               >
                 Disconnect
               </button>
-            </div>
+            </>
           ) : (
-            <div className="flex items-center">
-              <button
-                className="btn-primary text-sm px-3 py-2"
-                onClick={() => void handleConnect()}
-                disabled={isConnecting}
-              >
-                {isConnecting ? "Connecting…" : "Connect Wallet"}
-              </button>
-            </div>
+            <button
+              className="btn-primary text-sm px-3 py-2"
+              onClick={() => void handleConnect()}
+              disabled={isConnecting}
+            >
+              {isConnecting ? "Connecting…" : "Connect Wallet"}
+            </button>
           )}
         </div>
 
