@@ -1,5 +1,5 @@
 ;; BitExpress Remittance Smart Contract
-;; A low-fee cross-border payment network built on Stacks + sBTC
+;; A low-fee cross-border payment network built on Stacks + USDCx
 ;; Enables people to send money across African countries with ~1% fees
 
 ;; ============================================================
@@ -23,15 +23,18 @@
 (define-constant FEE-BASIS-POINTS u100)
 (define-constant BASIS-POINTS-DENOMINATOR u10000)
 
+;; USDCx SIP-010 token contract (same deployer namespace as remittance contract)
+(define-constant USDCX-TOKEN .usdcx)
+
 ;; Transfer timeout: ~144 Stacks blocks (Stacks produces ~1 block per ~10 minutes,
 ;; so 144 Stacks blocks ≈ 24 hours of Stacks block time)
 (define-constant TRANSFER-TIMEOUT-BLOCKS u144)
 
-;; Maximum transfer: 1 BTC in satoshis
-(define-constant MAX-TRANSFER-AMOUNT u100000000)
+;; Maximum transfer: 10,000 USDCx (6 decimals)
+(define-constant MAX-TRANSFER-AMOUNT u10000000000)
 
-;; Minimum transfer: 0.001 BTC in satoshis
-(define-constant MIN-TRANSFER-AMOUNT u100000)
+;; Minimum transfer: 1 USDCx (6 decimals)
+(define-constant MIN-TRANSFER-AMOUNT u1000000)
 
 ;; ============================================================
 ;; Data Variables
@@ -163,7 +166,7 @@
 ;; Send a remittance transfer
 ;; Parameters:
 ;;   receiver       - recipient's Stacks address
-;;   amount         - amount in microSTX (or sBTC satoshis)
+;;   amount         - amount in USDCx base units (6 decimals)
 ;;   source-country - ISO 3166-1 alpha-3 country code for sender (e.g. "GHA")
 ;;   dest-country   - ISO 3166-1 alpha-3 country code for receiver (e.g. "NGA")
 ;;   claim-code     - 32-byte hash of the claim secret
@@ -184,8 +187,8 @@
     (asserts! (>= amount MIN-TRANSFER-AMOUNT) ERR-INVALID-AMOUNT)
     (asserts! (<= amount MAX-TRANSFER-AMOUNT) ERR-TRANSFER-LIMIT-EXCEEDED)
 
-    ;; Transfer tokens from sender to contract (escrow)
-    (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+    ;; Transfer USDCx from sender to contract (escrow)
+    (try! (contract-call? USDCX-TOKEN transfer amount tx-sender (as-contract tx-sender) none))
 
     ;; Store the transfer record
     (map-set transfers
@@ -242,11 +245,11 @@
     ;; Verify transfer has not expired
     (asserts! (<= block-height (+ (get created-at transfer) TRANSFER-TIMEOUT-BLOCKS)) ERR-TRANSFER-EXPIRED)
 
-    ;; Transfer net amount to receiver
-    (try! (as-contract (stx-transfer? (get net-amount transfer) tx-sender (get receiver transfer))))
+    ;; Transfer net amount in USDCx from contract escrow to receiver
+    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get net-amount transfer) tx-sender (get receiver transfer) none)))
 
-    ;; Transfer fee to contract owner
-    (try! (as-contract (stx-transfer? (get fee transfer) tx-sender CONTRACT-OWNER)))
+    ;; Transfer fee in USDCx from contract escrow to contract owner
+    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get fee transfer) tx-sender CONTRACT-OWNER none)))
 
     ;; Update transfer status
     (map-set transfers
@@ -280,8 +283,8 @@
     ;; Verify transfer has expired
     (asserts! (> block-height (+ (get created-at transfer) TRANSFER-TIMEOUT-BLOCKS)) ERR-TRANSFER-NOT-EXPIRED)
 
-    ;; Refund full amount to sender
-    (try! (as-contract (stx-transfer? (get amount transfer) tx-sender (get sender transfer))))
+    ;; Refund full amount in USDCx from contract escrow to sender
+    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get amount transfer) tx-sender (get sender transfer) none)))
 
     ;; Update transfer status
     (map-set transfers
