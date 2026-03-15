@@ -139,9 +139,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       const selectedWalletName = walletNameFromProviderId(getSelectedProviderId()) ?? "Leather";
 
-      const challenge = await apiCreateAuthChallenge(connectedAddress);
+      const challenge = await apiCreateAuthChallenge(connectedAddress).catch((error) => {
+        console.error("[wallet.connect] auth challenge failed", {
+          stage: "auth.challenge",
+          walletAddress: connectedAddress,
+          message: error instanceof Error ? error.message : String(error),
+          error,
+        });
+        throw error;
+      });
+
       const signatureData = await stacksRequest("stx_signMessage", {
         message: challenge.message,
+      }).catch((error) => {
+        console.error("[wallet.connect] wallet signing failed", {
+          stage: "wallet.sign_message",
+          walletAddress: connectedAddress,
+          message: error instanceof Error ? error.message : String(error),
+          error,
+        });
+        throw error;
       });
 
       const verification = await apiVerifyWalletSignature({
@@ -149,9 +166,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         nonce: challenge.nonce,
         signature: signatureData.signature,
         publicKey: signatureData.publicKey,
+      }).catch((error) => {
+        console.error("[wallet.connect] auth verify failed", {
+          stage: "auth.verify",
+          walletAddress: connectedAddress,
+          nonce: challenge.nonce,
+          message: error instanceof Error ? error.message : String(error),
+          error,
+        });
+        throw error;
       });
 
-      await signInWithFirebaseCustomToken(verification.customToken, connectedAddress);
+      await signInWithFirebaseCustomToken(verification.customToken, connectedAddress).catch((error) => {
+        console.error("[wallet.connect] firebase sign-in failed", {
+          stage: "firebase.custom_token_signin",
+          walletAddress: connectedAddress,
+          message: error instanceof Error ? error.message : String(error),
+          error,
+        });
+        throw error;
+      });
 
       setAddress(connectedAddress);
       setWalletName(selectedWalletName);
@@ -160,6 +194,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         STORAGE_KEY,
         JSON.stringify({ address: connectedAddress, walletName: selectedWalletName } satisfies PersistedWalletState),
       );
+    } catch (error) {
+      console.error("[wallet.connect] connect flow failed", {
+        stage: "connect.flow",
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      });
+      throw error;
     } finally {
       setIsConnecting(false);
     }
