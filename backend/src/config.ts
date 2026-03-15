@@ -163,6 +163,8 @@ export const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:4000";
 
 export const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL || "https://api.paystack.co";
 export const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
+export const PAYSTACK_WEBHOOK_SECRET =
+  process.env.PAYSTACK_WEBHOOK_SECRET || PAYSTACK_SECRET_KEY;
 
 export const CINETPAY_BASE_URL = process.env.CINETPAY_BASE_URL || "https://client.cinetpay.com";
 export const CINETPAY_API_KEY = process.env.CINETPAY_API_KEY || "";
@@ -170,6 +172,7 @@ export const CINETPAY_TRANSFER_PASSWORD = process.env.CINETPAY_TRANSFER_PASSWORD
 export const CINETPAY_NOTIFY_URL =
   process.env.CINETPAY_NOTIFY_URL || `${APP_BASE_URL}/api/webhooks/cinetpay/transfer`;
 export const CINETPAY_LANG = process.env.CINETPAY_LANG || "en";
+export const CINETPAY_WEBHOOK_SECRET = process.env.CINETPAY_WEBHOOK_SECRET || "";
 
 // Firestore configuration
 // Set USE_FIRESTORE=true to force Firestore mode.

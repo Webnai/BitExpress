@@ -37,7 +37,14 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Body parsing
-app.use(express.json({ limit: "10kb" }));
+app.use(
+  express.json({
+    limit: "10kb",
+    verify: (req, _res, buf) => {
+      (req as express.Request).rawBody = buf.toString("utf8");
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(requestContextMiddleware);
 
