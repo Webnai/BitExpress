@@ -17,6 +17,7 @@ import {
   saveIdempotentResponse,
 } from "../utils/idempotency";
 import { logRequestError, logRequestInfo } from "../utils/logging";
+import { verifySendRemittanceTx } from "../services/stacksVerificationService";
 
 const router = Router();
 
@@ -107,6 +108,28 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const fee = (amount * PLATFORM_FEE_BASIS_POINTS) / BASIS_POINTS_DENOMINATOR;
     const netAmount = amount - fee;
     const microStxAmount = usdToMicroStx(amount);
+
+    if (process.env.NODE_ENV !== "test") {
+      if (!stacksTxId) {
+        res.status(400).json({
+          error: "stacksTxId is required and must reference a successful send-remittance transaction.",
+        });
+        return;
+      }
+
+      const verification = await verifySendRemittanceTx({
+        txId: stacksTxId,
+        senderWallet,
+        expectedAmount: microStxAmount,
+      });
+
+      if (!verification.ok) {
+        res.status(400).json({
+          error: verification.reason || "Invalid stacksTxId for this transfer.",
+        });
+        return;
+      }
+    }
 
     const transferId = uuidv4();
     const now = new Date();
