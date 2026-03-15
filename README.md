@@ -8,15 +8,15 @@
 
 ## 🌍 Supported Countries
 
-| Country | Currency | Mobile Money |
-|---------|----------|--------------|
-| 🇬🇭 Ghana | GHS | MTN MoMo |
-| 🇳🇬 Nigeria | NGN | Flutterwave |
-| 🇰🇪 Kenya | KES | M-Pesa |
-| 🇹🇬 Togo | XOF | Moov Money |
-| 🇸🇳 Senegal | XOF | Orange Money |
-| 🇹🇿 Tanzania | TZS | Vodacom M-Pesa |
-| 🇺🇬 Uganda | UGX | MTN MoMo |
+| Country | Currency | Mobile Money | Payout Rail |
+|---------|----------|--------------|-------------|
+| 🇬🇭 Ghana | GHS | MTN MoMo, Vodafone Cash, AirtelTigo | Paystack ✅ |
+| 🇰🇪 Kenya | KES | M-Pesa | Paystack ✅ |
+| 🇹🇬 Togo | XOF | TMoney, Flooz | CinetPay ✅ |
+| 🇸🇳 Senegal | XOF | Orange Money, Free Money, Wave | CinetPay ✅ |
+| 🇳🇬 Nigeria | NGN | — | Coming soon |
+| 🇹🇿 Tanzania | TZS | — | Coming soon |
+| 🇺🇬 Uganda | UGX | — | Coming soon |
 
 ---
 
@@ -24,16 +24,16 @@
 
 ```
 User A (Ghana)
-   │ send USDCx on Stacks
+   │ send sBTC on Stacks  (real Bitcoin, 1:1 peg)
    │
    ▼
-Stacks Smart Contract (Clarity)
+Stacks Smart Contract (Clarity)  ← escrows sBTC with claim secret
    │
    ▼
 Receiver Wallet
    │
    ▼
-Local off-ramp partner
+Off-ramp partner (Paystack / CinetPay)
    │
    ▼
 Mobile Money / Bank
@@ -65,15 +65,18 @@ BitExpress/
     ├── src/
     │   ├── index.ts              # Express app
     │   ├── config.ts             # Configuration
-    │   ├── db.ts                 # In-memory database
+    │   ├── db.ts                 # Firestore / in-memory database adapter
     │   ├── routes/
     │   │   ├── send.ts           # POST /api/send
     │   │   ├── claim.ts          # POST /api/claim
     │   │   ├── transaction.ts    # GET /api/transaction/:id
-    │   │   └── exchangeRate.ts   # GET /api/exchange-rate
+    │   │   ├── exchangeRate.ts   # GET /api/exchange-rate
+    │   │   ├── auth.ts           # Wallet auth challenge/verify
+    │   │   └── webhooks.ts       # Paystack & CinetPay webhook reconciliation
     │   └── services/
-    │       ├── fxService.ts      # FX rate conversion
-    │       ├── payoutService.ts  # Mobile money off-ramp
+    │       ├── fxService.ts      # FX rate conversion (live CoinGecko + er-api)
+    │       ├── payoutService.ts  # Paystack / CinetPay mobile-money off-ramp
+    │       ├── stacksVerificationService.ts # On-chain sBTC escrow event verification
     │       └── notificationService.ts # SMS/email alerts
     └── .env.example
 ```
@@ -146,7 +149,7 @@ curl http://localhost:4000/api/exchange-rate
 
 The `contracts/remittance.clar` contract implements:
 
-- **`send-remittance`** — Lock USDCx in escrow with claim secret hash
+- **`send-remittance`** — Lock sBTC in escrow with claim secret hash
 - **`claim-remittance`** — Receiver claims with secret, funds released
 - **`refund-remittance`** — Sender refunds after 24h timeout
 - **`get-transfer-status`** — Read transfer state
@@ -154,7 +157,7 @@ The `contracts/remittance.clar` contract implements:
 
 ### Fee Structure
 - Platform fee: **1%** (configurable via `FEE-BASIS-POINTS`)
-- Transfer limits: **1 USDCx** minimum, **10,000 USDCx** maximum
+- Transfer limits: **1,000 satoshis** minimum, **200,000,000 satoshis** (~2 BTC) maximum
 - Timeout: **144 blocks** (~24 hours)
 
 ---
@@ -164,7 +167,7 @@ The `contracts/remittance.clar` contract implements:
 Follow these steps to run a complete send→claim flow:
 
 ### Prerequisites
-- Two Stacks wallets loaded with testnet USDCx (Leather or Xverse)
+- Two Stacks wallets loaded with testnet sBTC (Leather or Xverse)
 - Both backend and frontend running locally
 
 ### Step 1 — Send (Sender wallet)
@@ -182,7 +185,7 @@ Follow these steps to run a complete send→claim flow:
 3. Enter the **Transfer ID** and click Load Transfer
 4. Paste the **Claim Secret** shared by the sender
 5. Click **Claim Funds** → wallet popup opens → confirm the `claim-remittance` contract call
-6. Once the tx confirms, the backend processes the payout simulation
+7. Once the tx confirms, the backend verifies the on-chain event and processes the payout
 7. Explorer links are shown for both the send and claim transactions
 
 ### Step 3 — Track
@@ -192,7 +195,7 @@ Follow these steps to run a complete send→claim flow:
 ### Refund (optional, after 24h timeout)
 1. On `http://localhost:3000/dashboard` with the sender wallet connected
 2. Pending transfers older than 24h show a **Refund** button
-3. Click Refund → confirm `refund-remittance` contract call → USDCx returned to sender
+3. Click Refund → confirm `refund-remittance` contract call → sBTC returned to sender
 
 ---
 
@@ -232,16 +235,18 @@ npm test
 - [x] Core smart contract (Clarity)
 - [x] REST API backend
 - [x] Next.js frontend
-- [x] Mobile money simulation
-- [x] FX rate service
-- [x] SMS notification service
+- [x] FX rate service (live CoinGecko + er-api)
 - [x] Live Stacks wallet integration (Leather/Xverse)
-- [x] On-chain send/claim/refund verification in backend
-- [ ] Real mobile money API integration
+- [x] On-chain sBTC escrow send/claim/refund verification
+- [x] Live Paystack mobile-money payouts (Ghana, Kenya)
+- [x] Live CinetPay mobile-money payouts (Togo, Senegal)
+- [x] Signed webhook reconciliation (Paystack HMAC-SHA512, CinetPay HMAC-SHA256)
+- [x] Firestore persistence
+- [x] SMS notification service
+- [ ] Nigeria / Tanzania / Uganda payout rails
 - [ ] Liquidity pools
 - [ ] SMS transfer (send to phone number)
-- [ ] Firebase persistence
 
 ---
 
-*Built on [Stacks](https://stacks.co) with Clarity smart contracts and USDCx settlement rails — secured by Bitcoin*
+*Built on [Stacks](https://stacks.co) with Clarity smart contracts and sBTC settlement — secured by Bitcoin*
