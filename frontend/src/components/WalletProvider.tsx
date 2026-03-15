@@ -1,7 +1,16 @@
 "use client";
 
-import { connect as stacksConnect, disconnect as stacksDisconnect, getLocalStorage, getSelectedProviderId } from "@stacks/connect";
+import {
+  connect as stacksConnect,
+  disconnect as stacksDisconnect,
+  getLocalStorage,
+  getSelectedProviderId,
+  request as stacksRequest,
+} from "@stacks/connect";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+
+import { apiCreateAuthChallenge, apiVerifyWalletSignature } from "@/lib/api";
+import { signInWithFirebaseCustomToken, signOutFirebaseSession } from "@/lib/firebaseAuth";
 
 type WalletName = "Leather" | "Xverse";
 
@@ -12,7 +21,7 @@ interface WalletContextValue {
   isHydrated: boolean;
   isConnecting: boolean;
   connectWallet: () => Promise<void>;
-  disconnectWallet: () => void;
+  disconnectWallet: () => Promise<void>;
 }
 
 interface PersistedWalletState {
@@ -25,12 +34,7 @@ const STORAGE_KEY = "bitexpress.wallet";
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 
 function pickAddress(addresses: Array<{ address: string; symbol?: string }>): string | null {
-  // Prefer STX address; fall back to first available.
-  return (
-    addresses.find((a) => a.symbol?.toUpperCase() === "STX")?.address ??
-    addresses[0]?.address ??
-    null
-  );
+  return addresses.find((a) => a.symbol?.toUpperCase() === "STX")?.address ?? addresses[0]?.address ?? null;
 }
 
 export function shortAddress(value: string | null): string | null {
@@ -54,7 +58,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Restore session from our own storage first.
     const persisted = window.localStorage.getItem(STORAGE_KEY);
     if (persisted) {
       try {
@@ -70,12 +73,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Fall back to Stacks Connect storage.
     const connectStorage = getLocalStorage();
     const fallbackAddress =
-      connectStorage?.addresses.stx[0]?.address ??
-      connectStorage?.addresses.btc[0]?.address ??
-      null;
+      connectStorage?.addresses.stx[0]?.address ?? connectStorage?.addresses.btc[0]?.address ?? null;
     const selectedId = getSelectedProviderId();
     const fallbackWalletName = walletNameFromProviderId(selectedId);
 
@@ -94,7 +94,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
-      // Use native wallet chooser popup so available providers are shown in one place.
       const result = await stacksConnect({
         network: "mainnet",
         forceWalletSelect: true,
@@ -107,22 +106,37 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw new Error("No address returned from wallet. Please try again.");
       }
 
-      const selectedWalletName = walletNameFromProviderId(getSelectedProviderId());
+      const selectedWalletName = walletNameFromProviderId(getSelectedProviderId()) ?? "Leather";
+
+      const challenge = await apiCreateAuthChallenge(connectedAddress);
+      const signatureData = await stacksRequest("stx_signMessage", {
+        message: challenge.message,
+      });
+
+      const verification = await apiVerifyWalletSignature({
+        walletAddress: connectedAddress,
+        nonce: challenge.nonce,
+        signature: signatureData.signature,
+        publicKey: signatureData.publicKey,
+      });
+
+      await signInWithFirebaseCustomToken(verification.customToken, connectedAddress);
 
       setAddress(connectedAddress);
       setWalletName(selectedWalletName);
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ address: connectedAddress, walletName: selectedWalletName ?? "Leather" } satisfies PersistedWalletState),
+        JSON.stringify({ address: connectedAddress, walletName: selectedWalletName } satisfies PersistedWalletState),
       );
     } finally {
       setIsConnecting(false);
     }
   }, []);
 
-  const disconnectWallet = useCallback(() => {
+  const disconnectWallet = useCallback(async () => {
     stacksDisconnect();
     window.localStorage.removeItem(STORAGE_KEY);
+    await signOutFirebaseSession();
     setAddress(null);
     setWalletName(null);
   }, []);

@@ -191,7 +191,6 @@ export default function ReceivePage() {
     try {
       const res = await apiClaim({
         transferId: transaction.id,
-        receiverWallet: address,
         claimCode: claimCode.trim() || undefined,
       });
       setClaimedAt(res.transfer.claimedAt ?? new Date().toISOString());

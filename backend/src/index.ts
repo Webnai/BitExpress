@@ -5,10 +5,13 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 
 import { PORT, CORS_ORIGIN } from "./config";
+import { requestContextMiddleware } from "./middleware/requestContext";
+import authRouter from "./routes/auth";
 import sendRouter from "./routes/send";
 import claimRouter from "./routes/claim";
 import transactionRouter from "./routes/transaction";
 import exchangeRateRouter from "./routes/exchangeRate";
+import { logError } from "./utils/logging";
 
 dotenv.config();
 
@@ -20,7 +23,7 @@ app.use(
   cors({
     origin: CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
   })
 );
 
@@ -35,6 +38,7 @@ app.use(limiter);
 // Body parsing
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+app.use(requestContextMiddleware);
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -47,6 +51,7 @@ app.get("/health", (_req, res) => {
 });
 
 // Routes
+app.use("/api/auth", authRouter);
 app.use("/api/send", sendRouter);
 app.use("/api/claim", claimRouter);
 app.use("/api/transaction", transactionRouter);
@@ -61,11 +66,17 @@ app.use((_req, res) => {
 app.use(
   (
     err: Error,
-    _req: express.Request,
+    req: express.Request,
     res: express.Response,
     _next: express.NextFunction
   ) => {
-    console.error("Unhandled error:", err);
+    logError("http.request.unhandled_error", {
+      requestId: req.requestId,
+      method: req.method,
+      path: req.originalUrl,
+      message: err.message,
+      stack: err.stack,
+    });
     res.status(500).json({ error: "Internal server error" });
   }
 );

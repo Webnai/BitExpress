@@ -1,8 +1,20 @@
 import { randomUUID } from "crypto";
-import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
-import { Firestore, getFirestore } from "firebase-admin/firestore";
+import { FieldValue, Firestore, getFirestore } from "firebase-admin/firestore";
 
-export interface Transfer {
+import {
+  assertFirebaseAdminConfiguredInProduction,
+  initializeFirebaseAdminIfNeeded,
+  isFirebaseAdminConfigured,
+} from "./firebaseAdmin";
+
+export interface AuditFields {
+  createdByUid: string;
+  updatedByUid: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+export interface Transfer extends AuditFields {
   id: string;
   sender: string;
   receiver: string;
@@ -20,25 +32,52 @@ export interface Transfer {
   stacksTxId?: string;
   status: "pending" | "claimed" | "refunded" | "failed";
   createdAt: string;
+  updatedAt: string;
   claimedAt?: string;
   refundedAt?: string;
   mobileMoneyRef?: string;
 }
 
-export interface User {
+export interface User extends AuditFields {
   id: string;
   walletAddress: string;
   country: string;
   phoneNumber?: string;
   kycStatus: "none" | "pending" | "verified";
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface IdempotencyRecord {
+  scope: "send" | "claim";
+  key: string;
+  requestHash: string;
+  responseStatus: number;
+  responseBody: unknown;
+  transferId?: string;
+  createdByUid: string;
+  createdAt: string;
+  createdAtMs: number;
+}
+
+export interface AuthChallenge {
+  walletAddress: string;
+  nonce: string;
+  message: string;
+  createdAt: string;
+  createdAtMs: number;
+  expiresAt: string;
+  expiresAtMs: number;
+  usedAt?: string;
+  usedAtMs?: number;
 }
 
 class Database {
   private transfers: Map<string, Transfer> = new Map();
   private users: Map<string, User> = new Map();
+  private idempotency: Map<string, IdempotencyRecord> = new Map();
+  private authChallenges: Map<string, AuthChallenge> = new Map();
 
-  // Transfer operations
   createTransfer(transfer: Transfer): Transfer {
     this.transfers.set(transfer.id, transfer);
     return transfer;
@@ -57,22 +96,17 @@ class Database {
   }
 
   getTransfersBySender(sender: string): Transfer[] {
-    return Array.from(this.transfers.values()).filter(
-      (t) => t.sender === sender
-    );
+    return Array.from(this.transfers.values()).filter((t) => t.sender === sender);
   }
 
   getTransfersByReceiver(receiver: string): Transfer[] {
-    return Array.from(this.transfers.values()).filter(
-      (t) => t.receiver === receiver
-    );
+    return Array.from(this.transfers.values()).filter((t) => t.receiver === receiver);
   }
 
   getAllTransfers(): Transfer[] {
     return Array.from(this.transfers.values());
   }
 
-  // User operations
   createUser(user: User): User {
     this.users.set(user.walletAddress, user);
     return user;
@@ -89,6 +123,37 @@ class Database {
     this.users.set(walletAddress, updated);
     return updated;
   }
+
+  getIdempotencyRecord(scope: IdempotencyRecord["scope"], key: string): IdempotencyRecord | undefined {
+    return this.idempotency.get(`${scope}:${key}`);
+  }
+
+  saveIdempotencyRecord(record: IdempotencyRecord): IdempotencyRecord {
+    this.idempotency.set(`${record.scope}:${record.key}`, record);
+    return record;
+  }
+
+  saveAuthChallenge(challenge: AuthChallenge): AuthChallenge {
+    this.authChallenges.set(challenge.walletAddress, challenge);
+    return challenge;
+  }
+
+  getAuthChallenge(walletAddress: string): AuthChallenge | undefined {
+    return this.authChallenges.get(walletAddress);
+  }
+
+  markAuthChallengeUsed(walletAddress: string, usedAt: string, usedAtMs: number): AuthChallenge | null {
+    const existing = this.authChallenges.get(walletAddress);
+    if (!existing) return null;
+
+    const updated: AuthChallenge = {
+      ...existing,
+      usedAt,
+      usedAtMs,
+    };
+    this.authChallenges.set(walletAddress, updated);
+    return updated;
+  }
 }
 
 export interface UserUpsertInput {
@@ -96,6 +161,7 @@ export interface UserUpsertInput {
   country: string;
   phoneNumber?: string;
   kycStatus?: User["kycStatus"];
+  actorUid: string;
 }
 
 export interface DatabaseAdapter {
@@ -108,6 +174,11 @@ export interface DatabaseAdapter {
   upsertUser(input: UserUpsertInput): Promise<User>;
   getUserByWallet(walletAddress: string): Promise<User | undefined>;
   updateUser(walletAddress: string, updates: Partial<User>): Promise<User | null>;
+  getIdempotencyRecord(scope: IdempotencyRecord["scope"], key: string): Promise<IdempotencyRecord | undefined>;
+  saveIdempotencyRecord(record: IdempotencyRecord): Promise<IdempotencyRecord>;
+  saveAuthChallenge(challenge: AuthChallenge): Promise<AuthChallenge>;
+  getAuthChallenge(walletAddress: string): Promise<AuthChallenge | undefined>;
+  markAuthChallengeUsed(walletAddress: string, usedAt: string, usedAtMs: number): Promise<AuthChallenge | null>;
 }
 
 class InMemoryDatabase implements DatabaseAdapter {
@@ -139,11 +210,16 @@ class InMemoryDatabase implements DatabaseAdapter {
 
   async upsertUser(input: UserUpsertInput): Promise<User> {
     const existing = this.base.getUserByWallet(input.walletAddress);
+    const now = new Date();
+
     if (existing) {
       const updated = this.base.updateUser(input.walletAddress, {
         country: input.country,
         phoneNumber: input.phoneNumber ?? existing.phoneNumber,
         kycStatus: input.kycStatus ?? existing.kycStatus,
+        updatedAt: now.toISOString(),
+        updatedAtMs: now.getTime(),
+        updatedByUid: input.actorUid,
       });
       return updated as User;
     }
@@ -154,7 +230,12 @@ class InMemoryDatabase implements DatabaseAdapter {
       country: input.country,
       phoneNumber: input.phoneNumber,
       kycStatus: input.kycStatus ?? "none",
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      createdByUid: input.actorUid,
+      updatedByUid: input.actorUid,
+      createdAtMs: now.getTime(),
+      updatedAtMs: now.getTime(),
     };
 
     return this.base.createUser(user);
@@ -167,6 +248,33 @@ class InMemoryDatabase implements DatabaseAdapter {
   async updateUser(walletAddress: string, updates: Partial<User>): Promise<User | null> {
     return this.base.updateUser(walletAddress, updates);
   }
+
+  async getIdempotencyRecord(
+    scope: IdempotencyRecord["scope"],
+    key: string
+  ): Promise<IdempotencyRecord | undefined> {
+    return this.base.getIdempotencyRecord(scope, key);
+  }
+
+  async saveIdempotencyRecord(record: IdempotencyRecord): Promise<IdempotencyRecord> {
+    return this.base.saveIdempotencyRecord(record);
+  }
+
+  async saveAuthChallenge(challenge: AuthChallenge): Promise<AuthChallenge> {
+    return this.base.saveAuthChallenge(challenge);
+  }
+
+  async getAuthChallenge(walletAddress: string): Promise<AuthChallenge | undefined> {
+    return this.base.getAuthChallenge(walletAddress);
+  }
+
+  async markAuthChallengeUsed(
+    walletAddress: string,
+    usedAt: string,
+    usedAtMs: number
+  ): Promise<AuthChallenge | null> {
+    return this.base.markAuthChallengeUsed(walletAddress, usedAt, usedAtMs);
+  }
 }
 
 class FirestoreDatabase implements DatabaseAdapter {
@@ -177,7 +285,11 @@ class FirestoreDatabase implements DatabaseAdapter {
   }
 
   async createTransfer(transfer: Transfer): Promise<Transfer> {
-    await this.firestore.collection("transfers").doc(transfer.id).set(transfer);
+    await this.firestore.collection("transfers").doc(transfer.id).set({
+      ...transfer,
+      createdAtServer: FieldValue.serverTimestamp(),
+      updatedAtServer: FieldValue.serverTimestamp(),
+    });
     return transfer;
   }
 
@@ -190,16 +302,19 @@ class FirestoreDatabase implements DatabaseAdapter {
     const ref = this.firestore.collection("transfers").doc(id);
     const snap = await ref.get();
     if (!snap.exists) return null;
-    await ref.set(updates, { merge: true });
+    await ref.set(
+      {
+        ...updates,
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
     const updated = await ref.get();
     return updated.data() as Transfer;
   }
 
   async getTransfersBySender(sender: string): Promise<Transfer[]> {
-    const snap = await this.firestore
-      .collection("transfers")
-      .where("sender", "==", sender)
-      .get();
+    const snap = await this.firestore.collection("transfers").where("sender", "==", sender).get();
     return snap.docs.map((d) => d.data() as Transfer);
   }
 
@@ -219,7 +334,9 @@ class FirestoreDatabase implements DatabaseAdapter {
   async upsertUser(input: UserUpsertInput): Promise<User> {
     const ref = this.firestore.collection("users").doc(input.walletAddress);
     const snap = await ref.get();
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const nowMs = now.getTime();
 
     if (snap.exists) {
       const existing = snap.data() as User;
@@ -228,8 +345,17 @@ class FirestoreDatabase implements DatabaseAdapter {
         country: input.country,
         phoneNumber: input.phoneNumber ?? existing.phoneNumber,
         kycStatus: input.kycStatus ?? existing.kycStatus,
+        updatedAt: nowIso,
+        updatedAtMs: nowMs,
+        updatedByUid: input.actorUid,
       };
-      await ref.set(updated, { merge: true });
+      await ref.set(
+        {
+          ...updated,
+          updatedAtServer: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
       return updated;
     }
 
@@ -239,10 +365,19 @@ class FirestoreDatabase implements DatabaseAdapter {
       country: input.country,
       phoneNumber: input.phoneNumber,
       kycStatus: input.kycStatus ?? "none",
-      createdAt: now,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      createdByUid: input.actorUid,
+      updatedByUid: input.actorUid,
+      createdAtMs: nowMs,
+      updatedAtMs: nowMs,
     };
 
-    await ref.set(user);
+    await ref.set({
+      ...user,
+      createdAtServer: FieldValue.serverTimestamp(),
+      updatedAtServer: FieldValue.serverTimestamp(),
+    });
     return user;
   }
 
@@ -255,40 +390,72 @@ class FirestoreDatabase implements DatabaseAdapter {
     const ref = this.firestore.collection("users").doc(walletAddress);
     const snap = await ref.get();
     if (!snap.exists) return null;
-    await ref.set(updates, { merge: true });
+    await ref.set(
+      {
+        ...updates,
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
     const updated = await ref.get();
     return updated.data() as User;
   }
-}
 
-function normalizePrivateKey(privateKey: string): string {
-  return privateKey.replace(/\\n/g, "\n");
-}
-
-function getServiceAccountFromEnv():
-  | { projectId: string; clientEmail: string; privateKey: string }
-  | null {
-  const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!json) return null;
-
-  try {
-    const parsed = JSON.parse(json) as {
-      project_id?: string;
-      client_email?: string;
-      private_key?: string;
-    };
-    if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
-      return null;
-    }
-
-    return {
-      projectId: parsed.project_id,
-      clientEmail: parsed.client_email,
-      privateKey: normalizePrivateKey(parsed.private_key),
-    };
-  } catch {
-    return null;
+  async getIdempotencyRecord(
+    scope: IdempotencyRecord["scope"],
+    key: string
+  ): Promise<IdempotencyRecord | undefined> {
+    const snap = await this.firestore.collection("idempotency").doc(`${scope}:${key}`).get();
+    return snap.exists ? (snap.data() as IdempotencyRecord) : undefined;
   }
+
+  async saveIdempotencyRecord(record: IdempotencyRecord): Promise<IdempotencyRecord> {
+    await this.firestore.collection("idempotency").doc(`${record.scope}:${record.key}`).set({
+      ...record,
+      createdAtServer: FieldValue.serverTimestamp(),
+    });
+    return record;
+  }
+
+  async saveAuthChallenge(challenge: AuthChallenge): Promise<AuthChallenge> {
+    await this.firestore.collection("authChallenges").doc(challenge.walletAddress).set({
+      ...challenge,
+      createdAtServer: FieldValue.serverTimestamp(),
+      updatedAtServer: FieldValue.serverTimestamp(),
+    });
+    return challenge;
+  }
+
+  async getAuthChallenge(walletAddress: string): Promise<AuthChallenge | undefined> {
+    const snap = await this.firestore.collection("authChallenges").doc(walletAddress).get();
+    return snap.exists ? (snap.data() as AuthChallenge) : undefined;
+  }
+
+  async markAuthChallengeUsed(
+    walletAddress: string,
+    usedAt: string,
+    usedAtMs: number
+  ): Promise<AuthChallenge | null> {
+    const ref = this.firestore.collection("authChallenges").doc(walletAddress);
+    const snap = await ref.get();
+    if (!snap.exists) return null;
+
+    await ref.set(
+      {
+        usedAt,
+        usedAtMs,
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const updated = await ref.get();
+    return updated.data() as AuthChallenge;
+  }
+}
+
+export function assertFirestoreConfigForProduction(): void {
+  assertFirebaseAdminConfiguredInProduction();
 }
 
 function createDatabaseAdapter(): DatabaseAdapter {
@@ -296,27 +463,15 @@ function createDatabaseAdapter(): DatabaseAdapter {
     return new InMemoryDatabase();
   }
 
-  const serviceAccount = getServiceAccountFromEnv();
-  const firestoreEnabled =
-    process.env.USE_FIRESTORE === "true" || Boolean(serviceAccount) || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  assertFirestoreConfigForProduction();
+
+  const firestoreEnabled = process.env.USE_FIRESTORE === "true" || isFirebaseAdminConfigured();
 
   if (!firestoreEnabled) {
     return new InMemoryDatabase();
   }
 
-  if (!getApps().length) {
-    if (serviceAccount) {
-      initializeApp({
-        credential: cert({
-          projectId: serviceAccount.projectId,
-          clientEmail: serviceAccount.clientEmail,
-          privateKey: serviceAccount.privateKey,
-        }),
-      });
-    } else {
-      initializeApp({ credential: applicationDefault() });
-    }
-  }
+  initializeFirebaseAdminIfNeeded();
 
   return new FirestoreDatabase(getFirestore());
 }

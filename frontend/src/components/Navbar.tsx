@@ -10,7 +10,7 @@ const PUBLIC_NAV = [{ href: "/", label: "Home" }];
 const PROTECTED_NAV = [
   { href: "/send", label: "Send Money" },
   { href: "/track", label: "Track Transfer" },
-  { href: "/dashboard", label: "History" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/receive", label: "Receive Money" },
 ];
 
@@ -72,6 +72,15 @@ export default function Navbar() {
     }
   };
 
+  const handleDisconnect = async () => {
+    try {
+      await disconnectWallet();
+      router.replace("/");
+    } catch {
+      toast.error("Failed to disconnect wallet.");
+    }
+  };
+
   const navContainerClass = isLandingPage ? "max-w-6xl" : "max-w-[1180px]";
   const desktopLinkClass = isLandingPage
     ? "text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
@@ -123,17 +132,12 @@ export default function Navbar() {
                 </svg>
               </button>
               <WalletAvatar address={address} size={32} />
-              <Link
-                href="/settings"
-                className={`text-sm font-medium transition-colors ${
-                  pathname === "/settings" ? "text-[var(--color-primary)]" : "text-[#5f6f88] hover:text-[#132a52]"
-                }`}
-              >
-                Settings
-              </Link>
+              <span className="text-xs text-[#5f6f88] font-mono max-w-[190px] truncate" title={address}>
+                {displayAddress ?? address}
+              </span>
               <button
                 className="rounded-lg border border-[#e1e8f3] bg-white px-3 py-1.5 text-xs font-semibold text-[#5f6f88] hover:bg-[#f6f9fe] hover:text-[#132a52] transition-colors"
-                onClick={disconnectWallet}
+                onClick={() => void handleDisconnect()}
               >
                 Disconnect
               </button>
@@ -200,7 +204,10 @@ export default function Navbar() {
                 </div>
                 <button
                   className="btn-secondary text-sm px-4 py-2 w-full"
-                  onClick={() => { disconnectWallet(); setMenuOpen(false); }}
+                  onClick={() => {
+                    void handleDisconnect();
+                    setMenuOpen(false);
+                  }}
                 >
                   Disconnect Wallet
                 </button>

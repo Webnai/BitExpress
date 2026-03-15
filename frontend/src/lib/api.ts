@@ -1,24 +1,88 @@
+import { getFirebaseIdToken } from "@/lib/firebaseAuth";
 import { API_BASE_URL } from "@/types";
 
-const STACKS_MAINNET_API_BASE_URL =
-  process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
+const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
 const STACKS_TESTNET_API_BASE_URL =
   process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
+
+function makeIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 async function parseJsonResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
   if (!res.ok) {
-    const message =
-      typeof data?.error === "string"
-        ? data.error
-        : `Request failed with status ${res.status}`;
+    const message = typeof data?.error === "string" ? data.error : `Request failed with status ${res.status}`;
     throw new Error(message);
   }
   return data as T;
 }
 
+async function apiFetch<T>(
+  path: string,
+  options: {
+    method?: "GET" | "POST" | "PUT" | "DELETE";
+    body?: unknown;
+    requiresAuth?: boolean;
+    idempotencyKey?: string;
+  } = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (options.requiresAuth) {
+    const token = await getFirebaseIdToken();
+    if (!token) {
+      throw new Error("You must be signed in before making this request.");
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: options.method ?? "GET",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  return parseJsonResponse<T>(response);
+}
+
+export async function apiCreateAuthChallenge(walletAddress: string) {
+  return apiFetch<{
+    walletAddress: string;
+    nonce: string;
+    message: string;
+    expiresAt: string;
+  }>("/api/auth/challenge", {
+    method: "POST",
+    body: { walletAddress },
+  });
+}
+
+export async function apiVerifyWalletSignature(payload: {
+  walletAddress: string;
+  nonce: string;
+  signature: string;
+  publicKey: string;
+}) {
+  return apiFetch<{
+    customToken: string;
+    walletAddress: string;
+  }>("/api/auth/verify", {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export async function apiSend(payload: {
-  senderWallet: string;
   receiverWallet: string;
   amountUsd: number;
   sourceCountry: string;
@@ -27,13 +91,11 @@ export async function apiSend(payload: {
   recipientName?: string;
   payoutMethod: string;
   stacksTxId?: string;
+  idempotencyKey?: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/api/send`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseJsonResponse<{
+  const { idempotencyKey, ...body } = payload;
+
+  return apiFetch<{
     success: boolean;
     transfer: {
       id: string;
@@ -45,20 +107,22 @@ export async function apiSend(payload: {
       destCountry: string;
       createdAt: string;
     };
-  }>(res);
+  }>("/api/send", {
+    method: "POST",
+    requiresAuth: true,
+    idempotencyKey: idempotencyKey ?? makeIdempotencyKey(),
+    body,
+  });
 }
 
 export async function apiClaim(payload: {
   transferId: string;
-  receiverWallet: string;
   claimCode?: string;
+  idempotencyKey?: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/api/claim`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseJsonResponse<{
+  const { idempotencyKey, ...body } = payload;
+
+  return apiFetch<{
     success: boolean;
     transfer: {
       id: string;
@@ -72,12 +136,16 @@ export async function apiClaim(payload: {
         estimatedDelivery?: string;
       };
     };
-  }>(res);
+  }>("/api/claim", {
+    method: "POST",
+    requiresAuth: true,
+    idempotencyKey: idempotencyKey ?? makeIdempotencyKey(),
+    body,
+  });
 }
 
 export async function apiGetTransaction(id: string) {
-  const res = await fetch(`${API_BASE_URL}/api/transaction/${id}`);
-  return parseJsonResponse<{
+  return apiFetch<{
     transaction: {
       id: string;
       sender: string;
@@ -95,12 +163,11 @@ export async function apiGetTransaction(id: string) {
       claimedAt?: string;
       mobileMoneyRef?: string;
     };
-  }>(res);
+  }>(`/api/transaction/${id}`);
 }
 
 export async function apiGetWalletHistory(address: string) {
-  const res = await fetch(`${API_BASE_URL}/api/transaction/wallet/${address}`);
-  return parseJsonResponse<{
+  return apiFetch<{
     sent: Array<{
       id: string;
       direction: "sent";
@@ -135,14 +202,12 @@ export async function apiGetWalletHistory(address: string) {
       claimedAt?: string;
       mobileMoneyRef?: string;
     }>;
-  }>(res);
+  }>(`/api/transaction/wallet/${address}`, { requiresAuth: true });
 }
 
 export async function apiGetWalletBalance(address: string) {
   const isTestnet = address.startsWith("ST") || address.startsWith("SN");
-  const baseUrl = isTestnet
-    ? STACKS_TESTNET_API_BASE_URL
-    : STACKS_MAINNET_API_BASE_URL;
+  const baseUrl = isTestnet ? STACKS_TESTNET_API_BASE_URL : STACKS_MAINNET_API_BASE_URL;
   const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
     cache: "no-store",
   });
@@ -156,15 +221,17 @@ export async function apiGetWalletBalance(address: string) {
 }
 
 export async function apiGetExchangeRates() {
-  const res = await fetch(`${API_BASE_URL}/api/exchange-rate`);
-  return parseJsonResponse<{
-    rates: Record<string, {
-      from: string;
-      to: string;
-      rate: number;
-      btcUsdPrice: number;
-      updatedAt: string;
-    }>;
+  return apiFetch<{
+    rates: Record<
+      string,
+      {
+        from: string;
+        to: string;
+        rate: number;
+        btcUsdPrice: number;
+        updatedAt: string;
+      }
+    >;
     supportedCountries: Array<{
       code: string;
       name: string;
@@ -173,13 +240,12 @@ export async function apiGetExchangeRates() {
       mobileMoney: string;
       flag: string;
     }>;
-  }>(res);
+  }>("/api/exchange-rate");
 }
 
 export async function apiGetEstimate(amountUsd: number) {
-  const res = await fetch(`${API_BASE_URL}/api/exchange-rate/estimate/${amountUsd}`);
-  return parseJsonResponse<{
+  return apiFetch<{
     amountUsd: number;
     estimates: Record<string, { localAmount: number; currency: string; flag: string }>;
-  }>(res);
+  }>(`/api/exchange-rate/estimate/${amountUsd}`);
 }

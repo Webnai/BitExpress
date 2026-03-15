@@ -214,7 +214,6 @@ export default function SendPage() {
     setIsSubmitting(true);
     try {
       const response = await apiSend({
-        senderWallet: address,
         receiverWallet: receiverWallet.trim(),
         amountUsd,
         sourceCountry: country,

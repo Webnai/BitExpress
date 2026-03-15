@@ -1,45 +1,85 @@
 import { Router, Request, Response } from "express";
+
 import { db } from "../db";
-import { SUPPORTED_COUNTRIES } from "../config";
+import { requireAuth } from "../middleware/auth";
 import { convertUsdToLocal } from "../services/fxService";
-import { processPayout } from "../services/payoutService";
 import { sendNotification } from "../services/notificationService";
+import { processPayout } from "../services/payoutService";
+import {
+  getIdempotencyKey,
+  getIdempotentResponse,
+  hashRequestBody,
+  saveIdempotentResponse,
+} from "../utils/idempotency";
+import { logRequestError, logRequestInfo } from "../utils/logging";
 
 const router = Router();
 
-/**
- * POST /api/claim
- * Claim a pending remittance and trigger mobile money payout.
- */
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { transferId, receiverWallet, claimCode } = req.body;
+    const receiverWallet = req.auth?.walletAddress;
+    const actorUid = req.auth?.uid;
 
-    if (!transferId || !receiverWallet) {
-      return res.status(400).json({
-        error: "Missing required fields: transferId, receiverWallet",
+    if (!receiverWallet || !actorUid) {
+      res.status(401).json({ error: "Missing authenticated wallet context." });
+      return;
+    }
+
+    const { transferId, claimCode } = req.body as { transferId?: string; claimCode?: string };
+
+    if (!transferId) {
+      res.status(400).json({
+        error: "Missing required field: transferId",
       });
+      return;
+    }
+
+    const idempotencyKey = getIdempotencyKey(req);
+    if (!idempotencyKey) {
+      res.status(400).json({ error: "Idempotency-Key header is required." });
+      return;
+    }
+
+    const requestHash = hashRequestBody({
+      transferId,
+      receiverWallet,
+      claimCode: claimCode ?? null,
+    });
+
+    const existing = await getIdempotentResponse("claim", idempotencyKey, requestHash);
+    if (existing === "mismatch") {
+      res.status(409).json({ error: "Idempotency key reused with a different request payload." });
+      return;
+    }
+    if (existing) {
+      logRequestInfo(req, "claim.idempotency_hit", {
+        transferId,
+        receiverWallet,
+      });
+      res.status(existing.responseStatus).json(existing.responseBody);
+      return;
     }
 
     const transfer = await db.getTransfer(transferId);
     if (!transfer) {
-      return res.status(404).json({ error: "Transfer not found" });
+      res.status(404).json({ error: "Transfer not found" });
+      return;
     }
 
     if (transfer.status !== "pending") {
-      return res.status(400).json({
+      res.status(400).json({
         error: `Transfer cannot be claimed. Current status: ${transfer.status}`,
       });
+      return;
     }
 
     if (transfer.receiver !== receiverWallet) {
-      return res.status(403).json({ error: "Not authorized to claim this transfer" });
+      res.status(403).json({ error: "Not authorized to claim this transfer" });
+      return;
     }
 
-    // Convert USD to local currency
     const localAmount = convertUsdToLocal(transfer.netAmount, transfer.destCountry);
 
-    // Process mobile money payout
     const payoutResult = await processPayout(
       {
         transferId,
@@ -53,17 +93,22 @@ router.post("/", async (req: Request, res: Response) => {
     );
 
     if (!payoutResult.success) {
-      return res.status(502).json({
+      res.status(502).json({
         error: "Payout failed",
         details: payoutResult.message,
       });
+      return;
     }
 
-    // Update transfer status
+    const now = new Date();
+
     const updatedTransfer = await db.updateTransfer(transferId, {
       status: "claimed",
-      claimedAt: new Date().toISOString(),
+      claimedAt: now.toISOString(),
       mobileMoneyRef: payoutResult.reference,
+      updatedAt: now.toISOString(),
+      updatedAtMs: now.getTime(),
+      updatedByUid: actorUid,
     });
 
     await db.upsertUser({
@@ -71,9 +116,9 @@ router.post("/", async (req: Request, res: Response) => {
       country: transfer.destCountry,
       phoneNumber: transfer.recipientPhone,
       kycStatus: "pending",
+      actorUid,
     });
 
-    // Notify sender
     await sendNotification({
       to: transfer.sender,
       type: "sms",
@@ -85,7 +130,7 @@ router.post("/", async (req: Request, res: Response) => {
       },
     });
 
-    return res.json({
+    const responseBody = {
       success: true,
       transfer: {
         id: transferId,
@@ -99,10 +144,32 @@ router.post("/", async (req: Request, res: Response) => {
           estimatedDelivery: payoutResult.estimatedDelivery,
         },
       },
+    };
+
+    await saveIdempotentResponse({
+      scope: "claim",
+      key: idempotencyKey,
+      requestHash,
+      responseStatus: 200,
+      responseBody,
+      transferId,
+      createdByUid: actorUid,
+      createdAt: now.toISOString(),
+      createdAtMs: now.getTime(),
     });
+
+    logRequestInfo(req, "claim.succeeded", {
+      transferId,
+      receiverWallet,
+      payoutReference: payoutResult.reference,
+    });
+
+    res.json(responseBody);
   } catch (error) {
-    console.error("Claim error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    logRequestError(req, "claim.failed", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

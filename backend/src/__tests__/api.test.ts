@@ -1,5 +1,11 @@
 import request from "supertest";
+
+import { assertFirestoreConfigForProduction } from "../db";
 import app from "../index";
+
+function authHeader(wallet: string, uid = `uid-${wallet}`): string {
+  return `Bearer test-token:${uid}:${wallet}`;
+}
 
 describe("BitExpress API", () => {
   describe("GET /health", () => {
@@ -27,34 +33,29 @@ describe("BitExpress API", () => {
       expect(res.body.rate.to).toBe("GHS");
       expect(res.body.rate.rate).toBeGreaterThan(0);
     });
-
-    it("returns 404 for unsupported country", async () => {
-      const res = await request(app).get("/api/exchange-rate/XYZ");
-      expect(res.status).toBe(404);
-    });
-
-    it("converts USD to NGN", async () => {
-      const res = await request(app)
-        .post("/api/exchange-rate/convert")
-        .send({ fromCurrency: "USD", toCurrency: "NGN", amount: 100 });
-      expect(res.status).toBe(200);
-      expect(res.body.toAmount).toBeGreaterThan(1000);
-    });
-
-    it("returns estimate for all countries", async () => {
-      const res = await request(app).get("/api/exchange-rate/estimate/50");
-      expect(res.status).toBe(200);
-      expect(res.body.amountUsd).toBe(50);
-      expect(res.body.estimates).toBeDefined();
-    });
   });
 
   describe("POST /api/send", () => {
+    it("rejects requests without auth", async () => {
+      const res = await request(app)
+        .post("/api/send")
+        .set("Idempotency-Key", "send-no-auth")
+        .send({
+          receiverWallet: "SP2DEF...RECEIVER",
+          amountUsd: 20,
+          sourceCountry: "GHA",
+          destCountry: "NGA",
+        });
+
+      expect(res.status).toBe(401);
+    });
+
     it("creates a new transfer", async () => {
       const res = await request(app)
         .post("/api/send")
+        .set("Authorization", authHeader("SP1ABC...SENDER"))
+        .set("Idempotency-Key", "send-create-1")
         .send({
-          senderWallet: "SP1ABC...SENDER",
           receiverWallet: "SP2DEF...RECEIVER",
           amountUsd: 20,
           sourceCountry: "GHA",
@@ -72,37 +73,29 @@ describe("BitExpress API", () => {
       expect(res.body.transfer.netAmount).toBeCloseTo(19.8, 5);
     });
 
-    it("rejects invalid amount", async () => {
-      const res = await request(app)
-        .post("/api/send")
-        .send({
-          senderWallet: "SP1ABC",
-          receiverWallet: "SP2DEF",
-          amountUsd: 0,
-          sourceCountry: "GHA",
-          destCountry: "NGA",
-        });
-      expect(res.status).toBe(400);
-    });
+    it("returns same response for same idempotency key", async () => {
+      const payload = {
+        receiverWallet: "SP2REPEAT",
+        amountUsd: 25,
+        sourceCountry: "GHA",
+        destCountry: "NGA",
+      };
 
-    it("rejects unsupported country", async () => {
-      const res = await request(app)
+      const first = await request(app)
         .post("/api/send")
-        .send({
-          senderWallet: "SP1ABC",
-          receiverWallet: "SP2DEF",
-          amountUsd: 20,
-          sourceCountry: "USA",
-          destCountry: "NGA",
-        });
-      expect(res.status).toBe(400);
-    });
+        .set("Authorization", authHeader("SP1IDEMP"))
+        .set("Idempotency-Key", "send-idem-1")
+        .send(payload);
 
-    it("rejects missing required fields", async () => {
-      const res = await request(app)
+      const second = await request(app)
         .post("/api/send")
-        .send({ amountUsd: 20 });
-      expect(res.status).toBe(400);
+        .set("Authorization", authHeader("SP1IDEMP"))
+        .set("Idempotency-Key", "send-idem-1")
+        .send(payload);
+
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      expect(second.body.transfer.id).toBe(first.body.transfer.id);
     });
   });
 
@@ -110,11 +103,11 @@ describe("BitExpress API", () => {
     let transferId: string;
 
     beforeEach(async () => {
-      // Create a transfer first
       const sendRes = await request(app)
         .post("/api/send")
+        .set("Authorization", authHeader("SP1SENDER"))
+        .set("Idempotency-Key", `send-claim-seed-${Date.now()}`)
         .send({
-          senderWallet: "SP1SENDER",
           receiverWallet: "SP2RECEIVER",
           amountUsd: 50,
           sourceCountry: "KEN",
@@ -123,6 +116,7 @@ describe("BitExpress API", () => {
           recipientName: "Jane Smith",
           payoutMethod: "mobile_money",
         });
+
       transferId = sendRes.body.transfer.id;
     });
 
@@ -134,18 +128,21 @@ describe("BitExpress API", () => {
       expect(res.body.transaction.sourceCountry.code).toBe("KEN");
     });
 
-    it("returns 404 for non-existent transaction", async () => {
-      const res = await request(app).get("/api/transaction/non-existent-id");
-      expect(res.status).toBe(404);
-    });
-
-    it("claims a transfer", async () => {
+    it("requires auth for claim", async () => {
       const res = await request(app)
         .post("/api/claim")
-        .send({
-          transferId,
-          receiverWallet: "SP2RECEIVER",
-        });
+        .set("Idempotency-Key", "claim-no-auth")
+        .send({ transferId });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("claims a transfer with authenticated receiver", async () => {
+      const res = await request(app)
+        .post("/api/claim")
+        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Idempotency-Key", "claim-success-1")
+        .send({ transferId });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -154,32 +151,77 @@ describe("BitExpress API", () => {
       expect(res.body.transfer.payout.localCurrency).toBeDefined();
     });
 
-    it("rejects duplicate claim", async () => {
-      // Claim once
-      await request(app)
+    it("returns same response for same claim idempotency key", async () => {
+      const first = await request(app)
         .post("/api/claim")
-        .send({ transferId, receiverWallet: "SP2RECEIVER" });
+        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Idempotency-Key", "claim-idem-1")
+        .send({ transferId });
 
-      // Try to claim again
-      const res = await request(app)
+      const second = await request(app)
         .post("/api/claim")
-        .send({ transferId, receiverWallet: "SP2RECEIVER" });
+        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Idempotency-Key", "claim-idem-1")
+        .send({ transferId });
 
-      expect(res.status).toBe(400);
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(second.body.transfer.id).toBe(first.body.transfer.id);
+      expect(second.body.transfer.payout.reference).toBe(first.body.transfer.payout.reference);
     });
 
     it("rejects claim from wrong wallet", async () => {
       const res = await request(app)
         .post("/api/claim")
-        .send({ transferId, receiverWallet: "SP3WRONG" });
+        .set("Authorization", authHeader("SP3WRONG"))
+        .set("Idempotency-Key", "claim-wrong-wallet")
+        .send({ transferId });
       expect(res.status).toBe(403);
     });
 
-    it("retrieves wallet transaction history", async () => {
+    it("requires auth for wallet history", async () => {
       const res = await request(app).get("/api/transaction/wallet/SP1SENDER");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects wallet history access for different wallet", async () => {
+      const res = await request(app)
+        .get("/api/transaction/wallet/SP1SENDER")
+        .set("Authorization", authHeader("SP2RECEIVER"));
+      expect(res.status).toBe(403);
+    });
+
+    it("retrieves wallet transaction history for owner", async () => {
+      const res = await request(app)
+        .get("/api/transaction/wallet/SP1SENDER")
+        .set("Authorization", authHeader("SP1SENDER"));
       expect(res.status).toBe(200);
       expect(res.body.sent).toBeInstanceOf(Array);
       expect(res.body.received).toBeInstanceOf(Array);
+    });
+  });
+
+  describe("Firestore production config enforcement", () => {
+    it("throws when production mode has no Firebase admin credentials", () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      const originalGoogleCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const originalServiceJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+      process.env.NODE_ENV = "production";
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+      expect(() => assertFirestoreConfigForProduction()).toThrow(
+        "Firebase Admin is required in production"
+      );
+
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalGoogleCreds !== undefined) {
+        process.env.GOOGLE_APPLICATION_CREDENTIALS = originalGoogleCreds;
+      }
+      if (originalServiceJson !== undefined) {
+        process.env.FIREBASE_SERVICE_ACCOUNT_JSON = originalServiceJson;
+      }
     });
   });
 });

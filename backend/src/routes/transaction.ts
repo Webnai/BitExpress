@@ -1,21 +1,26 @@
 import { Router, Request, Response } from "express";
+
 import { db } from "../db";
 import { SUPPORTED_COUNTRIES, TRANSFER_TIMEOUT_MS } from "../config";
+import { requireAuth } from "../middleware/auth";
 import { sendNotification } from "../services/notificationService";
+import { logRequestInfo } from "../utils/logging";
 
 const router = Router();
 
-/**
- * GET /api/transaction/wallet/:address
- * Get all transfers for a wallet address.
- */
-router.get("/wallet/:address", async (req: Request, res: Response) => {
+router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) => {
   const { address } = req.params;
+  const authenticatedWallet = req.auth?.walletAddress;
+
+  if (!authenticatedWallet || authenticatedWallet !== address) {
+    res.status(403).json({ error: "Not authorized to view this wallet history." });
+    return;
+  }
 
   const sent = await db.getTransfersBySender(address);
   const received = await db.getTransfersByReceiver(address);
 
-  return res.json({
+  res.json({
     sent: sent
       .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -59,22 +64,19 @@ router.get("/wallet/:address", async (req: Request, res: Response) => {
   });
 });
 
-/**
- * GET /api/transaction/:id
- * Retrieve details for a specific transfer.
- */
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   const transfer = await db.getTransfer(id);
   if (!transfer) {
-    return res.status(404).json({ error: "Transaction not found" });
+    res.status(404).json({ error: "Transaction not found" });
+    return;
   }
 
   const sourceCountryInfo = SUPPORTED_COUNTRIES[transfer.sourceCountry];
   const destCountryInfo = SUPPORTED_COUNTRIES[transfer.destCountry];
 
-  return res.json({
+  res.json({
     transaction: {
       id: transfer.id,
       sender: transfer.sender,
@@ -109,41 +111,52 @@ router.get("/:id", async (req: Request, res: Response) => {
   });
 });
 
-/**
- * POST /api/transaction/:id/refund
- * Request a refund for an expired transfer.
- */
-router.post("/:id/refund", async (req: Request, res: Response) => {
+router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { senderWallet } = req.body;
+  const senderWallet = req.auth?.walletAddress;
+  const actorUid = req.auth?.uid;
+
+  if (!senderWallet || !actorUid) {
+    res.status(401).json({ error: "Missing authenticated wallet context." });
+    return;
+  }
 
   const transfer = await db.getTransfer(id);
   if (!transfer) {
-    return res.status(404).json({ error: "Transaction not found" });
+    res.status(404).json({ error: "Transaction not found" });
+    return;
   }
 
   if (transfer.sender !== senderWallet) {
-    return res.status(403).json({ error: "Not authorized to refund this transfer" });
+    res.status(403).json({ error: "Not authorized to refund this transfer" });
+    return;
   }
 
   if (transfer.status !== "pending") {
-    return res.status(400).json({
+    res.status(400).json({
       error: `Cannot refund transfer with status: ${transfer.status}`,
     });
+    return;
   }
 
   const createdAt = new Date(transfer.createdAt).getTime();
-  const now = Date.now();
+  const nowMs = Date.now();
 
-  if (now - createdAt < TRANSFER_TIMEOUT_MS) {
-    return res.status(400).json({
+  if (nowMs - createdAt < TRANSFER_TIMEOUT_MS) {
+    res.status(400).json({
       error: "Transfer has not yet expired. Refunds are available after 24 hours.",
     });
+    return;
   }
+
+  const now = new Date();
 
   await db.updateTransfer(id, {
     status: "refunded",
-    refundedAt: new Date().toISOString(),
+    refundedAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    updatedAtMs: now.getTime(),
+    updatedByUid: actorUid,
   });
 
   await sendNotification({
@@ -156,11 +169,16 @@ router.post("/:id/refund", async (req: Request, res: Response) => {
     },
   });
 
-  return res.json({
+  logRequestInfo(req, "transfer.refunded", {
+    transferId: id,
+    senderWallet,
+  });
+
+  res.json({
     success: true,
     message: "Transfer refunded successfully",
     transferId: id,
-    refundedAt: new Date().toISOString(),
+    refundedAt: now.toISOString(),
   });
 });
 
