@@ -71,6 +71,12 @@ export async function getFirebaseIdToken(forceRefresh = false): Promise<string |
   return auth.currentUser.getIdToken(forceRefresh);
 }
 
+export async function getFirebaseSessionWalletAddress(): Promise<string | null> {
+  const auth = await getFirebaseAuth();
+  if (!auth?.currentUser) return null;
+  return auth.currentUser.displayName || null;
+}
+
 export async function signOutFirebaseSession(): Promise<void> {
   const auth = await getFirebaseAuth();
   if (!auth || !auth.currentUser) return;

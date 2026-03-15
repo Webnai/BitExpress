@@ -10,12 +10,18 @@ import {
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { apiCreateAuthChallenge, apiVerifyWalletSignature } from "@/lib/api";
-import { signInWithFirebaseCustomToken, signOutFirebaseSession } from "@/lib/firebaseAuth";
+import {
+  getFirebaseIdToken,
+  getFirebaseSessionWalletAddress,
+  signInWithFirebaseCustomToken,
+  signOutFirebaseSession,
+} from "@/lib/firebaseAuth";
 
 type WalletName = "Leather" | "Xverse";
 
 interface WalletContextValue {
   connected: boolean;
+  authenticated: boolean;
   address: string | null;
   walletName: WalletName | null;
   isHydrated: boolean;
@@ -54,41 +60,66 @@ function walletNameFromProviderId(providerId: string | null): WalletName | null 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [walletName, setWalletName] = useState<WalletName | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const persisted = window.localStorage.getItem(STORAGE_KEY);
-    if (persisted) {
-      try {
-        const parsed = JSON.parse(persisted) as PersistedWalletState;
-        if (parsed.address && parsed.walletName) {
-          setAddress(parsed.address);
-          setWalletName(parsed.walletName);
-          setIsHydrated(true);
-          return;
+    async function hydrateSession() {
+      let candidateAddress: string | null = null;
+      let candidateWalletName: WalletName | null = null;
+
+      const persisted = window.localStorage.getItem(STORAGE_KEY);
+      if (persisted) {
+        try {
+          const parsed = JSON.parse(persisted) as PersistedWalletState;
+          if (parsed.address && parsed.walletName) {
+            candidateAddress = parsed.address;
+            candidateWalletName = parsed.walletName;
+          }
+        } catch {
+          window.localStorage.removeItem(STORAGE_KEY);
         }
-      } catch {
+      }
+
+      if (!candidateAddress || !candidateWalletName) {
+        const connectStorage = getLocalStorage();
+        const fallbackAddress =
+          connectStorage?.addresses.stx[0]?.address ?? connectStorage?.addresses.btc[0]?.address ?? null;
+        const selectedId = getSelectedProviderId();
+        const fallbackWalletName = walletNameFromProviderId(selectedId);
+
+        if (fallbackAddress && fallbackWalletName) {
+          candidateAddress = fallbackAddress;
+          candidateWalletName = fallbackWalletName;
+        }
+      }
+
+      const token = await getFirebaseIdToken();
+      const sessionWallet = await getFirebaseSessionWalletAddress();
+
+      if (candidateAddress && candidateWalletName && token && sessionWallet === candidateAddress) {
+        setAddress(candidateAddress);
+        setWalletName(candidateWalletName);
+        setAuthenticated(true);
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            address: candidateAddress,
+            walletName: candidateWalletName,
+          } satisfies PersistedWalletState),
+        );
+      } else {
+        setAddress(null);
+        setWalletName(null);
+        setAuthenticated(false);
         window.localStorage.removeItem(STORAGE_KEY);
       }
+
+      setIsHydrated(true);
     }
 
-    const connectStorage = getLocalStorage();
-    const fallbackAddress =
-      connectStorage?.addresses.stx[0]?.address ?? connectStorage?.addresses.btc[0]?.address ?? null;
-    const selectedId = getSelectedProviderId();
-    const fallbackWalletName = walletNameFromProviderId(selectedId);
-
-    if (fallbackAddress && fallbackWalletName) {
-      setAddress(fallbackAddress);
-      setWalletName(fallbackWalletName);
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ address: fallbackAddress, walletName: fallbackWalletName } satisfies PersistedWalletState),
-      );
-    }
-
-    setIsHydrated(true);
+    void hydrateSession();
   }, []);
 
   const connectWallet = useCallback(async () => {
@@ -124,6 +155,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       setAddress(connectedAddress);
       setWalletName(selectedWalletName);
+      setAuthenticated(true);
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ address: connectedAddress, walletName: selectedWalletName } satisfies PersistedWalletState),
@@ -139,11 +171,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     await signOutFirebaseSession();
     setAddress(null);
     setWalletName(null);
+    setAuthenticated(false);
   }, []);
 
   const value = useMemo<WalletContextValue>(
     () => ({
-      connected: Boolean(address),
+      connected: Boolean(address) && authenticated,
+      authenticated,
       address,
       walletName,
       isHydrated,
@@ -151,7 +185,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       connectWallet,
       disconnectWallet,
     }),
-    [address, walletName, isHydrated, isConnecting, connectWallet, disconnectWallet],
+    [authenticated, address, walletName, isHydrated, isConnecting, connectWallet, disconnectWallet],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
