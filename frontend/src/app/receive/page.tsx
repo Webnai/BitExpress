@@ -279,7 +279,7 @@ export default function ReceivePage() {
       icon: <Smartphone className="w-5 h-5 text-[#ff7448]" />,
       iconBg: "bg-[#fff3ef]",
       title: "Withdraw to Mobile Money",
-      subtitle: "MTN MoMo, Flutterwave, M-Pesa, Moov Money",
+      subtitle: "Paystack for Ghana/Kenya, CinetPay for supported West African rails",
       badge: "Instant",
       badgeColor: "bg-[#ecfdf5] text-[#059669]",
     },
@@ -287,9 +287,9 @@ export default function ReceivePage() {
       method: "bank_transfer",
       icon: <Building2 className="w-5 h-5 text-[#3b82f6]" />,
       iconBg: "bg-[#eff6ff]",
-      title: "Convert to Local Currency",
-      subtitle: "View current exchange rates",
-      badge: "1-2 days",
+      title: "Bank Payout",
+      subtitle: "Disabled until a live bank disbursement rail is integrated",
+      badge: "Offline",
       badgeColor: "bg-[#eff6ff] text-[#3b82f6]",
     },
     {
@@ -309,7 +309,7 @@ export default function ReceivePage() {
       <div className="mx-auto max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <div className="mb-5">
           <h1 className="text-3xl font-bold text-[#132a52]">Receive Money</h1>
-          <p className="text-[#6f7d95] mt-1 text-sm">Claim your incoming Bitcoin transfer</p>
+          <p className="text-[#6f7d95] mt-1 text-sm">Claim your incoming Stacks-secured transfer and trigger the mobile-money payout</p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">

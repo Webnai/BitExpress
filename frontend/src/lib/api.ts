@@ -93,6 +93,7 @@ export async function apiSend(payload: {
   destCountry: string;
   recipientPhone?: string;
   recipientName?: string;
+  recipientMobileProvider?: string;
   payoutMethod: string;
   stacksTxId?: string;
   idempotencyKey?: string;
@@ -140,6 +141,8 @@ export async function apiClaim(payload: {
         localCurrency: string;
         message: string;
         estimatedDelivery?: string;
+        provider?: string;
+        status?: string;
       };
     };
   }>("/api/claim", {
@@ -165,7 +168,10 @@ export async function apiGetTransaction(id: string) {
       onChainTransferId?: number;
       recipientPhone?: string;
       recipientName?: string;
+      recipientMobileProvider?: string;
       payoutMethod?: string;
+      payoutProvider?: string;
+      payoutStatus?: string;
       claimStacksTxId?: string;
       refundStacksTxId?: string;
       createdAt: string;
@@ -189,6 +195,9 @@ export async function apiGetWalletHistory(address: string) {
       countryCode: string;
       countryName?: string;
       payoutMethod: string;
+      recipientMobileProvider?: string;
+      payoutProvider?: string;
+      payoutStatus?: string;
       status: string;
       onChainTransferId?: number;
       stacksTxId?: string;
@@ -210,6 +219,9 @@ export async function apiGetWalletHistory(address: string) {
       countryCode: string;
       countryName?: string;
       payoutMethod: string;
+      recipientMobileProvider?: string;
+      payoutProvider?: string;
+      payoutStatus?: string;
       status: string;
       onChainTransferId?: number;
       stacksTxId?: string;
@@ -300,6 +312,13 @@ export async function apiGetExchangeRates() {
       currency: string;
       currencySymbol: string;
       mobileMoney: string;
+      supportsMobileMoneyPayout: boolean;
+      mobileMoneyProvider?: string;
+      mobileMoneyOperators: Array<{
+        code: string;
+        label: string;
+        provider: string;
+      }>;
       flag: string;
     }>;
   }>("/api/exchange-rate");

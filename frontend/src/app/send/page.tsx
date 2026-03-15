@@ -42,7 +42,6 @@ function getFlagCountry(code: string) {
 
 const PAY_METHODS = [
   { key: "mobile_money", title: "Mobile Money", icon: "📱" },
-  { key: "bank_transfer", title: "Bank Transfer", icon: "🏦" },
   { key: "crypto_wallet", title: "Crypto Wallet", icon: "₿" },
 ] as const;
 
@@ -73,6 +72,13 @@ type CountryMetaMap = Record<
     currency: string;
     currencySymbol: string;
     mobileMoney: string;
+    supportsMobileMoneyPayout: boolean;
+    mobileMoneyProvider?: string;
+    mobileMoneyOperators: Array<{
+      code: string;
+      label: string;
+      provider: string;
+    }>;
     flag: string;
   }
 >;
@@ -100,12 +106,13 @@ function isLikelyStacksAddress(value: string): boolean {
 export default function SendPage() {
   const { address } = useWallet();
   const [sourceCountry, setSourceCountry] = useState("GHA");
-  const [destCountry, setDestCountry] = useState("NGA");
+  const [destCountry, setDestCountry] = useState("KEN");
   const [phone, setPhone] = useState("");
   const [recipientName, setRecipientName] = useState("");
+  const [recipientMobileProvider, setRecipientMobileProvider] = useState("");
   const [receiverWallet, setReceiverWallet] = useState("");
   const [amountUsdInput, setAmountUsdInput] = useState("20.00");
-  const [method, setMethod] = useState<PayoutMethod>("crypto_wallet");
+  const [method, setMethod] = useState<PayoutMethod>("mobile_money");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingStacksTxId, setPendingStacksTxId] = useState<string | null>(null);
   const [pendingClaimSecret, setPendingClaimSecret] = useState<string | null>(null);
@@ -191,8 +198,29 @@ export default function SendPage() {
     };
   }, [address]);
 
+  useEffect(() => {
+    if (method !== "mobile_money") {
+      setRecipientMobileProvider("");
+      return;
+    }
+
+    const operators = countryMeta[destCountry]?.mobileMoneyOperators ?? [];
+    if (!operators.length) {
+      setRecipientMobileProvider("");
+      return;
+    }
+
+    if (!operators.some((operator) => operator.code === recipientMobileProvider)) {
+      setRecipientMobileProvider(operators[0].code);
+    }
+  }, [countryMeta, destCountry, method, recipientMobileProvider]);
+
   const selectedRate = rates[destCountry];
   const selectedCountryMeta = countryMeta[destCountry];
+  const selectedMobileMoneyOperators = selectedCountryMeta?.mobileMoneyOperators ?? [];
+  const selectedOperator = selectedMobileMoneyOperators.find(
+    (operator) => operator.code === recipientMobileProvider
+  );
   const amountUsd = Number.parseFloat(amountUsdInput) || 0;
   const feeUsd = amountUsd * 0.01;
   const networkFeeUsd = 0;
@@ -208,13 +236,20 @@ export default function SendPage() {
   const isAmountValid = Number.isFinite(amountUsd) && amountUsd >= 1 && amountUsd <= 10000;
   const isRecipientWalletValid = isLikelyStacksAddress(receiverWalletNormalized);
   const requiresPhone = method === "mobile_money";
+  const requiresMobileOperator = method === "mobile_money";
   const isPhoneValid = !requiresPhone || phoneNormalized.length >= 8;
+  const isLiveMobileMoneyAvailable =
+    method !== "mobile_money" || Boolean(selectedCountryMeta?.supportsMobileMoneyPayout);
+  const isMobileOperatorValid =
+    !requiresMobileOperator || selectedMobileMoneyOperators.some((operator) => operator.code === recipientMobileProvider);
   const isRecipientNameValid = recipientNameNormalized.length > 1;
   const canSubmitForm =
     Boolean(address) &&
     isAmountValid &&
     isRecipientWalletValid &&
     isPhoneValid &&
+    isLiveMobileMoneyAvailable &&
+    isMobileOperatorValid &&
     isRecipientNameValid;
 
   const sendMaxLabel = useMemo(() => {
@@ -237,6 +272,7 @@ export default function SendPage() {
       destCountry,
       recipientPhone: phoneNormalized || undefined,
       recipientName: recipientNameNormalized || undefined,
+      recipientMobileProvider: method === "mobile_money" ? recipientMobileProvider : undefined,
       payoutMethod: method,
       stacksTxId: txid,
       idempotencyKey,
@@ -275,6 +311,16 @@ export default function SendPage() {
 
     if (!isPhoneValid) {
       toast.error("Recipient phone is required for mobile money payout.");
+      return;
+    }
+
+    if (!isLiveMobileMoneyAvailable) {
+      toast.error("This corridor is not available for live mobile-money payout yet.");
+      return;
+    }
+
+    if (!isMobileOperatorValid) {
+      toast.error("Select the recipient's mobile-money operator.");
       return;
     }
 
@@ -380,6 +426,37 @@ export default function SendPage() {
                 ) : null}
               </div>
 
+              {requiresMobileOperator ? (
+                <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
+                  <label className="mb-1 block text-[11px] text-[#7f8ea9]">Mobile Money Operator</label>
+                  {selectedMobileMoneyOperators.length ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <select
+                        value={recipientMobileProvider}
+                        onChange={(e) => setRecipientMobileProvider(e.target.value)}
+                        className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                      >
+                        {selectedMobileMoneyOperators.map((operator) => (
+                          <option key={operator.code} value={operator.code}>
+                            {operator.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[#8b99b0]">▾</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-[#b45309]">
+                      Live mobile-money payout is not available for this country via Paystack or CinetPay.
+                    </p>
+                  )}
+                  {selectedOperator ? (
+                    <p className="mt-1 text-[10px] text-[#7f8ea9]">
+                      Routed through {selectedOperator.provider === "paystack" ? "Paystack" : "CinetPay"}.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
                 <label className="mb-1 block text-[11px] text-[#7f8ea9]">Recipient Name</label>
                 <input
@@ -428,7 +505,7 @@ export default function SendPage() {
 
             <div className="mt-7">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Payment Method</p>
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {PAY_METHODS.map((item) => {
                   const active = method === item.key;
                   return (
@@ -462,6 +539,21 @@ export default function SendPage() {
                 The backend finalizes the transfer after the wallet returns the broadcast transaction ID.
               </p>
             </div>
+
+            {method === "mobile_money" && selectedCountryMeta ? (
+              <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3 text-xs text-[#42526b]">
+                <p className="font-semibold text-[#132a52]">Live Payout Rail</p>
+                {selectedCountryMeta.supportsMobileMoneyPayout ? (
+                  <p className="mt-1">
+                    {selectedCountryMeta.mobileMoneyProvider === "paystack" ? "Paystack" : "CinetPay"} will handle the mobile-money payout in {selectedCountryMeta.name}.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[#b45309]">
+                    This corridor cannot be paid out to mobile money with the providers currently integrated into the app.
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             <div className="mt-7">
               <h2 className="text-sm font-semibold text-[#132a52]">Recent Recipients</h2>
@@ -555,7 +647,7 @@ export default function SendPage() {
             </div>
 
             <div className="mt-5 rounded-xl bg-[#eef7ff] p-3 text-xs text-[#42526b]">⚡ Arrives in 5-15 minutes</div>
-            <p className="mt-3 text-xs text-[#7f8ea9]">🛡️ Rate from live external APIs through backend and wallet-backed recipients</p>
+            <p className="mt-3 text-xs text-[#7f8ea9]">🛡️ Rate from live external APIs, with mobile-money payouts routed through Paystack or CinetPay where available</p>
 
             <div className="mt-5 space-y-2">
               <button
@@ -578,6 +670,7 @@ export default function SendPage() {
                   setReceiverWallet("");
                   setRecipientName("");
                   setPhone("");
+                  setRecipientMobileProvider("");
                   setPendingStacksTxId(null);
                   setPendingClaimSecret(null);
                   setSubmissionKey(null);

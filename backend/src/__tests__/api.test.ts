@@ -59,9 +59,10 @@ describe("BitExpress API", () => {
           receiverWallet: "SP2DEF...RECEIVER",
           amountUsd: 20,
           sourceCountry: "GHA",
-          destCountry: "NGA",
-          recipientPhone: "+2348012345678",
+          destCountry: "GHA",
+          recipientPhone: "+233551234567",
           recipientName: "John Doe",
+          recipientMobileProvider: "MTN",
           payoutMethod: "mobile_money",
         });
 
@@ -78,7 +79,11 @@ describe("BitExpress API", () => {
         receiverWallet: "SP2REPEAT",
         amountUsd: 25,
         sourceCountry: "GHA",
-        destCountry: "NGA",
+        destCountry: "GHA",
+        recipientPhone: "+233551234568",
+        recipientName: "Repeat Recipient",
+        recipientMobileProvider: "MTN",
+        payoutMethod: "mobile_money",
       };
 
       const first = await request(app)
@@ -97,6 +102,26 @@ describe("BitExpress API", () => {
       expect(second.status).toBe(201);
       expect(second.body.transfer.id).toBe(first.body.transfer.id);
     });
+
+    it("rejects unsupported live mobile-money corridors", async () => {
+      const res = await request(app)
+        .post("/api/send")
+        .set("Authorization", authHeader("SP1ABC...SENDER"))
+        .set("Idempotency-Key", "send-unsupported-mm")
+        .send({
+          receiverWallet: "SP2DEF...RECEIVER",
+          amountUsd: 20,
+          sourceCountry: "GHA",
+          destCountry: "NGA",
+          recipientPhone: "+2348012345678",
+          recipientName: "John Doe",
+          recipientMobileProvider: "MTN",
+          payoutMethod: "mobile_money",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/not available/i);
+    });
   });
 
   describe("POST /api/claim + GET /api/transaction", () => {
@@ -111,9 +136,10 @@ describe("BitExpress API", () => {
           receiverWallet: "SP2RECEIVER",
           amountUsd: 50,
           sourceCountry: "KEN",
-          destCountry: "NGA",
-          recipientPhone: "+2349012345678",
+          destCountry: "SEN",
+          recipientPhone: "+221771234567",
           recipientName: "Jane Smith",
+          recipientMobileProvider: "OMSN",
           payoutMethod: "mobile_money",
         });
 

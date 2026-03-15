@@ -28,7 +28,10 @@ export interface Transfer extends AuditFields {
   destCountry: string;
   recipientPhone?: string;
   recipientName?: string;
+  recipientMobileProvider?: string;
   payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
+  payoutProvider?: "paystack" | "cinetpay" | "stacks";
+  payoutStatus?: "not_started" | "processing" | "success" | "failed";
   claimCodeHash?: string;
   stacksTxId?: string;
   claimStacksTxId?: string;

@@ -22,6 +22,9 @@ router.get("/", async (_req: Request, res: Response) => {
       currency: country.currency,
       currencySymbol: country.currencySymbol,
       mobileMoney: country.mobileMoney,
+      supportsMobileMoneyPayout: country.supportsMobileMoneyPayout,
+      mobileMoneyProvider: country.mobileMoneyProvider,
+      mobileMoneyOperators: country.mobileMoneyOperators,
       flag: country.flag,
     })),
   });

@@ -36,10 +36,10 @@ const STEPS = [
 ];
 
 const COUNTRIES = [
-  { name: "Ghana" as const, methods: ["Mobile Money", "Bank Transfer"] },
-  { name: "Nigeria" as const, methods: ["Mobile Money", "Bank Transfer"] },
-  { name: "Kenya" as const, methods: ["M-Pesa", "Bank Transfer"] },
-  { name: "Togo" as const, methods: ["Mobile Money", "Bank Transfer"] },
+  { name: "Ghana" as const, methods: ["Paystack MoMo", "MTN / Vodafone / AirtelTigo"] },
+  { name: "Nigeria" as const, methods: ["Wallet Claim", "Mobile payout not yet supported"] },
+  { name: "Kenya" as const, methods: ["Paystack M-Pesa", "On-chain claim"] },
+  { name: "Togo" as const, methods: ["CinetPay", "TMoney / Flooz"] },
 ];
 
 export default function LandingPage() {

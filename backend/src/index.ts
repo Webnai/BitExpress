@@ -11,6 +11,7 @@ import sendRouter from "./routes/send";
 import claimRouter from "./routes/claim";
 import transactionRouter from "./routes/transaction";
 import exchangeRateRouter from "./routes/exchangeRate";
+import webhooksRouter from "./routes/webhooks";
 import { logError } from "./utils/logging";
 
 dotenv.config();
@@ -56,6 +57,7 @@ app.use("/api/send", sendRouter);
 app.use("/api/claim", claimRouter);
 app.use("/api/transaction", transactionRouter);
 app.use("/api/exchange-rate", exchangeRateRouter);
+app.use("/api/webhooks", webhooksRouter);
 
 // 404 handler
 app.use((_req, res) => {

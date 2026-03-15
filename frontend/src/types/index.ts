@@ -56,7 +56,7 @@ export const SUPPORTED_COUNTRIES: Country[] = [
     name: "Nigeria",
     currency: "NGN",
     currencySymbol: "₦",
-    mobileMoney: "Flutterwave",
+    mobileMoney: "No live mobile-money payout rail",
     flag: "🇳🇬",
   },
   {
