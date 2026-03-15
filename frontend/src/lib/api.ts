@@ -6,8 +6,9 @@ const STACKS_TESTNET_API_BASE_URL =
   process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
 const STACKS_CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "ST000000000000000000002AMW42H";
-const USDCX_ASSET_IDENTIFIER =
-  process.env.NEXT_PUBLIC_USDCX_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.usdcx::usdcx-token`;
+// Mainnet sBTC: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
+const SBTC_ASSET_IDENTIFIER =
+  process.env.NEXT_PUBLIC_SBTC_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.sbtc-token::sbtc`;
 
 function makeIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -267,7 +268,7 @@ export async function apiGetWalletBalance(address: string) {
   }>(res);
 }
 
-export async function apiGetUsdcxBalance(address: string) {
+export async function apiGetSbtcBalance(address: string) {
   const isTestnet = address.startsWith("ST") || address.startsWith("SN");
   const baseUrl = isTestnet ? STACKS_TESTNET_API_BASE_URL : STACKS_MAINNET_API_BASE_URL;
   const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
@@ -285,9 +286,9 @@ export async function apiGetUsdcxBalance(address: string) {
     >;
   }>(res);
 
-  const token = data.fungible_tokens?.[USDCX_ASSET_IDENTIFIER];
+  const token = data.fungible_tokens?.[SBTC_ASSET_IDENTIFIER];
   return {
-    assetIdentifier: USDCX_ASSET_IDENTIFIER,
+    assetIdentifier: SBTC_ASSET_IDENTIFIER,
     balance: token?.balance || "0",
     totalSent: token?.total_sent || "0",
     totalReceived: token?.total_received || "0",

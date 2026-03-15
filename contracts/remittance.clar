@@ -1,6 +1,6 @@
 ;; BitExpress Remittance Smart Contract
-;; A low-fee cross-border payment network built on Stacks + USDCx
-;; Enables people to send money across African countries with ~1% fees
+;; A low-fee cross-border payment network built on Stacks + sBTC (real Bitcoin)
+;; Enables people to send Bitcoin across African corridors with ~1% fees
 
 ;; ============================================================
 ;; Constants
@@ -23,18 +23,21 @@
 (define-constant FEE-BASIS-POINTS u100)
 (define-constant BASIS-POINTS-DENOMINATOR u10000)
 
-;; USDCx SIP-010 token contract (same deployer namespace as remittance contract)
-(define-constant USDCX-TOKEN .usdcx)
+;; sBTC SIP-010 token contract.
+;; Testnet: deploy a SIP-010 mock as .sbtc-token (same deployer namespace).
+;; Mainnet: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+(define-constant SBTC-TOKEN .sbtc-token)
 
 ;; Transfer timeout: ~144 Stacks blocks (Stacks produces ~1 block per ~10 minutes,
 ;; so 144 Stacks blocks ≈ 24 hours of Stacks block time)
 (define-constant TRANSFER-TIMEOUT-BLOCKS u144)
 
-;; Maximum transfer: 10,000 USDCx (6 decimals)
-(define-constant MAX-TRANSFER-AMOUNT u10000000000)
+;; Maximum transfer: 2 BTC = 200,000,000 satoshis
+;; (backend enforces $10,000 USD cap at prevailing BTC price)
+(define-constant MAX-TRANSFER-AMOUNT u200000000)
 
-;; Minimum transfer: 1 USDCx (6 decimals)
-(define-constant MIN-TRANSFER-AMOUNT u1000000)
+;; Minimum transfer: 1,000 satoshis (~$0.65 at $65K/BTC; backend enforces $1 USD floor)
+(define-constant MIN-TRANSFER-AMOUNT u1000)
 
 ;; ============================================================
 ;; Data Variables
@@ -166,9 +169,9 @@
 ;; Send a remittance transfer
 ;; Parameters:
 ;;   receiver       - recipient's Stacks address
-;;   amount         - amount in USDCx base units (6 decimals)
+;;   amount         - amount in sBTC satoshis (8 decimals, 1 BTC = 100,000,000)
 ;;   source-country - ISO 3166-1 alpha-3 country code for sender (e.g. "GHA")
-;;   dest-country   - ISO 3166-1 alpha-3 country code for receiver (e.g. "NGA")
+;;   dest-country   - ISO 3166-1 alpha-3 country code for receiver (e.g. "KEN")
 ;;   claim-code     - 32-byte hash of the claim secret
 (define-public (send-remittance
     (receiver principal)
@@ -187,8 +190,8 @@
     (asserts! (>= amount MIN-TRANSFER-AMOUNT) ERR-INVALID-AMOUNT)
     (asserts! (<= amount MAX-TRANSFER-AMOUNT) ERR-TRANSFER-LIMIT-EXCEEDED)
 
-    ;; Transfer USDCx from sender to contract (escrow)
-    (try! (contract-call? USDCX-TOKEN transfer amount tx-sender (as-contract tx-sender) none))
+    ;; Transfer sBTC from sender to contract (escrow)
+    (try! (contract-call? SBTC-TOKEN transfer amount tx-sender (as-contract tx-sender) none))
 
     ;; Store the transfer record
     (map-set transfers
@@ -245,11 +248,11 @@
     ;; Verify transfer has not expired
     (asserts! (<= block-height (+ (get created-at transfer) TRANSFER-TIMEOUT-BLOCKS)) ERR-TRANSFER-EXPIRED)
 
-    ;; Transfer net amount in USDCx from contract escrow to receiver
-    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get net-amount transfer) tx-sender (get receiver transfer) none)))
+    ;; Transfer net amount in sBTC from contract escrow to receiver
+    (try! (as-contract (contract-call? SBTC-TOKEN transfer (get net-amount transfer) tx-sender (get receiver transfer) none)))
 
-    ;; Transfer fee in USDCx from contract escrow to contract owner
-    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get fee transfer) tx-sender CONTRACT-OWNER none)))
+    ;; Transfer fee in sBTC from contract escrow to contract owner
+    (try! (as-contract (contract-call? SBTC-TOKEN transfer (get fee transfer) tx-sender CONTRACT-OWNER none)))
 
     ;; Update transfer status
     (map-set transfers
@@ -283,8 +286,8 @@
     ;; Verify transfer has expired
     (asserts! (> block-height (+ (get created-at transfer) TRANSFER-TIMEOUT-BLOCKS)) ERR-TRANSFER-NOT-EXPIRED)
 
-    ;; Refund full amount in USDCx from contract escrow to sender
-    (try! (as-contract (contract-call? USDCX-TOKEN transfer (get amount transfer) tx-sender (get sender transfer) none)))
+    ;; Refund full amount in sBTC from contract escrow to sender
+    (try! (as-contract (contract-call? SBTC-TOKEN transfer (get amount transfer) tx-sender (get sender transfer) none)))
 
     ;; Update transfer status
     (map-set transfers

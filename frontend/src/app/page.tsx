@@ -30,7 +30,7 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather or Xverse) and load it with USDCx tokens." },
+  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather or Xverse) and load it with sBTC — real Bitcoin on Stacks." },
   { step: "2", title: "Send via Smart Contract", desc: "Enter recipient details and confirm the escrow transaction directly from your wallet." },
   { step: "3", title: "Receiver Claims & Cashes Out", desc: "The receiver enters the claim secret, releases funds on-chain, and withdraws to mobile money or a bank." },
 ];

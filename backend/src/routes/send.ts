@@ -9,7 +9,7 @@ import {
   SUPPORTED_COUNTRIES,
   getMobileMoneyOperator,
 } from "../config";
-import { usdToUsdcxBaseUnits } from "../services/fxService";
+import { usdToSbtcSatoshis, getLiveBtcUsdPrice } from "../services/fxService";
 import { sendNotification } from "../services/notificationService";
 import {
   getIdempotencyKey,
@@ -148,7 +148,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const fee = (amount * PLATFORM_FEE_BASIS_POINTS) / BASIS_POINTS_DENOMINATOR;
     const netAmount = amount - fee;
-    const usdcxAmount = usdToUsdcxBaseUnits(amount);
+    const btcUsdPrice = await getLiveBtcUsdPrice();
+    const sbtcAmount = usdToSbtcSatoshis(amount, btcUsdPrice);
 
     let onChainTransferId: number | undefined;
 
@@ -163,7 +164,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       const verification = await verifySendRemittanceTx({
         txId: stacksTxId,
         senderWallet,
-        expectedAmount: usdcxAmount,
+        expectedAmount: sbtcAmount,
       });
 
       if (!verification.ok) {
@@ -184,11 +185,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       sender: senderWallet,
       receiver: receiverWallet,
       onChainTransferId,
-      amount: usdcxAmount,
+      amount: sbtcAmount,
       amountUsd: amount,
       fee,
       netAmount,
-      currency: "USDCx",
+      currency: "sBTC",
       sourceCountry,
       destCountry,
       recipientPhone,

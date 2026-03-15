@@ -387,7 +387,7 @@ export async function processPayout(
       reference: `TEST-${request.transferId}`,
       message: `Test payout completed for ${request.transferId}.`,
       localAmount: request.payoutMethod === "crypto_wallet" ? request.amountUsd : localAmount,
-      localCurrency: request.payoutMethod === "crypto_wallet" ? "USDCx" : country.currency,
+      localCurrency: request.payoutMethod === "crypto_wallet" ? "sBTC" : country.currency,
       estimatedDelivery: buildEstimatedDelivery(1),
       provider:
         request.payoutMethod === "mobile_money"

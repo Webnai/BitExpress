@@ -19,7 +19,7 @@ export interface Transfer extends AuditFields {
   sender: string;
   receiver: string;
   onChainTransferId?: number;
-  amount: number; // in USDCx base units (6 decimals)
+  amount: number; // in sBTC satoshis (8 decimals, 1 BTC = 100,000,000 sats)
   amountUsd: number;
   fee: number;
   netAmount: number;

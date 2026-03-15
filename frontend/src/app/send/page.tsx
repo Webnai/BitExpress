@@ -7,7 +7,7 @@ import CountryFlag from "@/components/CountryFlag";
 import { useWallet } from "@/components/WalletProvider";
 import {
   apiGetExchangeRates,
-  apiGetUsdcxBalance,
+  apiGetSbtcBalance,
   apiGetWalletHistory,
   apiSend,
 } from "@/lib/api";
@@ -15,7 +15,7 @@ import {
   createSendRemittanceTx,
   generateClaimSecretHex,
   getStacksTxExplorerUrl,
-  usdToUsdcxBaseUnits,
+  usdToSbtcSatoshis,
 } from "@/lib/stacks";
 import { Copy, Check } from "lucide-react";
 
@@ -120,7 +120,7 @@ export default function SendPage() {
   const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [rates, setRates] = useState<ExchangeRateMap>({});
   const [countryMeta, setCountryMeta] = useState<CountryMetaMap>({});
-  const [usdcxBalance, setUsdcxBalance] = useState<string | null>(null);
+  const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<WalletHistoryRecipient[]>([]);
   const [transferResult, setTransferResult] = useState<{
     id: string;
@@ -159,20 +159,20 @@ export default function SendPage() {
 
     async function loadWalletData() {
       if (!address) {
-        setUsdcxBalance(null);
+        setSbtcBalance(null);
         setRecentRecipients([]);
         return;
       }
 
       const [balanceResult, historyResult] = await Promise.allSettled([
-        apiGetUsdcxBalance(address),
+        apiGetSbtcBalance(address),
         apiGetWalletHistory(address),
       ]);
 
       if (cancelled) return;
 
       if (balanceResult.status === "fulfilled") {
-        setUsdcxBalance(balanceResult.value.balance);
+        setSbtcBalance(balanceResult.value.balance);
       }
 
       if (historyResult.status === "fulfilled") {
@@ -228,7 +228,8 @@ export default function SendPage() {
   const recipientGetsUsd = Math.max(amountUsd - feeUsd, 0);
   const localPerUsd = selectedRate ? selectedRate.rate / Math.max(selectedRate.btcUsdPrice, 1) : 0;
   const recipientGetsLocal = recipientGetsUsd * localPerUsd;
-  const connectedBalanceUsdcx = usdcxBalance ? Number(usdcxBalance) / 1_000_000 : null;
+  const btcUsdPrice = selectedRate?.btcUsdPrice ?? 65000;
+  const connectedBalanceSbtc = sbtcBalance ? Number(sbtcBalance) / 100_000_000 : null;
   const selectedFlagCountry = getFlagCountry(destCountry);
   const receiverWalletNormalized = receiverWallet.trim();
   const recipientNameNormalized = recipientName.trim();
@@ -253,9 +254,9 @@ export default function SendPage() {
     isRecipientNameValid;
 
   const sendMaxLabel = useMemo(() => {
-    if (connectedBalanceUsdcx === null) return null;
-    return `${connectedBalanceUsdcx.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDCx connected`;
-  }, [connectedBalanceUsdcx]);
+    if (connectedBalanceSbtc === null) return null;
+    return `${connectedBalanceSbtc.toLocaleString(undefined, { maximumFractionDigits: 6 })} sBTC connected`;
+  }, [connectedBalanceSbtc]);
 
   function createIdempotencyKey() {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -333,7 +334,7 @@ export default function SendPage() {
         const claimSecretHex = generateClaimSecretHex();
         const contractCall = await createSendRemittanceTx({
           receiverWallet: receiverWalletNormalized,
-          amountBaseUnits: usdToUsdcxBaseUnits(amountUsd),
+          amountSatoshis: usdToSbtcSatoshis(amountUsd, btcUsdPrice),
           sourceCountry,
           destCountry,
           claimSecretHex,
@@ -494,7 +495,7 @@ export default function SendPage() {
                   />
                   <div className="h-fit rounded-full bg-[#eef2f8] p-1 text-[10px] font-semibold text-[#5f6f88]">
                     <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">USD</span>
-                    <span className="px-3 py-1">USDCx</span>
+                    <span className="px-3 py-1">sBTC</span>
                   </div>
                 </div>
               </div>
@@ -619,7 +620,10 @@ export default function SendPage() {
             <div className="mt-6 space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">You send</span>
-                <span className="font-semibold text-[#42526b]">${amountUsd.toFixed(2)} / {amountUsd.toFixed(2)} USDCx</span>
+                <span className="font-semibold text-[#42526b]">
+                    ${amountUsd.toFixed(2)} /{" "}
+                    {usdToSbtcSatoshis(amountUsd, btcUsdPrice).toLocaleString()} sats
+                  </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">Recipient gets</span>

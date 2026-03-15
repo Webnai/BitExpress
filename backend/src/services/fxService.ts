@@ -215,11 +215,20 @@ export function microStxToUsd(microStx: number): number {
   return (microStx / 1_000_000) * STX_USD_PRICE;
 }
 
-export function usdToUsdcxBaseUnits(usd: number): number {
-  // USDCx has 6 decimals and is 1:1 with USD.
-  return Math.floor(usd * 1_000_000);
+/**
+ * Convert a USD amount to satoshis given the current BTC/USD price.
+ * sBTC has 8 decimal places (1 BTC = 100,000,000 satoshis).
+ */
+export function usdToSbtcSatoshis(amountUsd: number, btcUsdPrice: number): number {
+  if (btcUsdPrice <= 0) throw new Error("BTC/USD price must be positive.");
+  return Math.round((amountUsd / btcUsdPrice) * 100_000_000);
 }
 
-export function usdcxBaseUnitsToUsd(units: number): number {
-  return units / 1_000_000;
+export function sbtcSatoshisToUsd(satoshis: number, btcUsdPrice: number): number {
+  return (satoshis / 100_000_000) * btcUsdPrice;
+}
+
+export async function getLiveBtcUsdPrice(): Promise<number> {
+  const snapshot = await fetchLiveRateSnapshot();
+  return snapshot.btcUsdPrice;
 }

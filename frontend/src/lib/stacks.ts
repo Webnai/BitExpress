@@ -5,8 +5,9 @@ export const CONTRACT_ADDRESS =
 export const CONTRACT_NAME = process.env.NEXT_PUBLIC_CONTRACT_NAME || "remittance";
 export const CONTRACT_ID = `${CONTRACT_ADDRESS}.${CONTRACT_NAME}` as `${string}.${string}`;
 
-export function usdToUsdcxBaseUnits(amountUsd: number): number {
-  return Math.round(amountUsd * 1_000_000);
+export function usdToSbtcSatoshis(amountUsd: number, btcUsdPrice: number): number {
+  if (btcUsdPrice <= 0) return 0;
+  return Math.round((amountUsd / btcUsdPrice) * 100_000_000);
 }
 
 export function generateClaimSecretHex(): string {
@@ -16,7 +17,7 @@ export function generateClaimSecretHex(): string {
 
 export async function createSendRemittanceTx(input: {
   receiverWallet: string;
-  amountBaseUnits: number;
+  amountSatoshis: number;
   sourceCountry: string;
   destCountry: string;
   claimSecretHex: string;
@@ -31,7 +32,7 @@ export async function createSendRemittanceTx(input: {
     functionName: "send-remittance",
     functionArgs: [
       Cl.principal(input.receiverWallet),
-      Cl.uint(input.amountBaseUnits),
+      Cl.uint(input.amountSatoshis),
       Cl.stringAscii(input.sourceCountry),
       Cl.stringAscii(input.destCountry),
       Cl.bufferFromHex(input.claimSecretHex),

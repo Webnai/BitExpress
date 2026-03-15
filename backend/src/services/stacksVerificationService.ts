@@ -100,8 +100,11 @@ const STACKS_API_BASE_URL =
   (STACKS_NETWORK === "mainnet" ? "https://api.hiro.so" : "https://api.testnet.hiro.so");
 
 const REMITTANCE_CONTRACT_ID = `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`;
-const USDCX_ASSET_IDENTIFIER =
-  process.env.USDCX_ASSET_IDENTIFIER || `${CONTRACT_ADDRESS}.usdcx::usdcx-token`;
+// The sBTC asset identifier used to verify escrow events on-chain.
+// Testnet default: same-namespace .sbtc-token (deploy a SIP-010 mock).
+// Mainnet: set SBTC_ASSET_IDENTIFIER=SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
+const SBTC_ASSET_IDENTIFIER =
+  process.env.SBTC_ASSET_IDENTIFIER || `${CONTRACT_ADDRESS}.sbtc-token::sbtc`;
 
 function normalizePrincipal(value?: string): string {
   return (value || "").trim().toUpperCase();
@@ -160,7 +163,7 @@ export async function verifySendRemittanceTx(
       const amount = event.asset?.amount || event.amount;
 
       return (
-        samePrincipal(assetId, USDCX_ASSET_IDENTIFIER) &&
+        samePrincipal(assetId, SBTC_ASSET_IDENTIFIER) &&
         samePrincipal(sender, input.senderWallet) &&
         samePrincipal(recipient, REMITTANCE_CONTRACT_ID) &&
         amount === expectedAmount
@@ -171,7 +174,7 @@ export async function verifySendRemittanceTx(
       return {
         ok: false,
         reason:
-          "Transaction is missing expected USDCx escrow transfer event (sender -> remittance contract, exact amount).",
+          "Transaction is missing expected sBTC escrow transfer event (sender -> remittance contract, exact amount).",
       };
     }
 
