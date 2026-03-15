@@ -1,0 +1,24 @@
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: https://api.testnet.hiro.so
+bitcoin-node: http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332
+plan:
+  batches:
+  - id: 0
+    transactions:
+    - transaction-type: contract-publish
+      contract-name: sbtc-token
+      expected-sender: ST22XTWYXH14VK7SQYEAMKRKRS9BZ32QXJPQNZ7FN
+      cost: 2620
+      path: contracts/sbtc-token.clar
+      anchor-block-only: true
+      clarity-version: 2
+    - transaction-type: contract-publish
+      contract-name: remittance
+      expected-sender: ST22XTWYXH14VK7SQYEAMKRKRS9BZ32QXJPQNZ7FN
+      cost: 117490
+      path: contracts/remittance.clar
+      anchor-block-only: true
+      clarity-version: 2
+    epoch: '3.3'
