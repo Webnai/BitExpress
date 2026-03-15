@@ -167,8 +167,10 @@ export async function apiGetTransaction(id: string) {
       recipientName?: string;
       payoutMethod?: string;
       claimStacksTxId?: string;
+      refundStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
+      refundedAt?: string;
       mobileMoneyRef?: string;
     };
   }>(`/api/transaction/${id}`);
@@ -191,8 +193,10 @@ export async function apiGetWalletHistory(address: string) {
       onChainTransferId?: number;
       stacksTxId?: string;
       claimStacksTxId?: string;
+      refundStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
+      refundedAt?: string;
       mobileMoneyRef?: string;
     }>;
     received: Array<{
@@ -210,11 +214,30 @@ export async function apiGetWalletHistory(address: string) {
       onChainTransferId?: number;
       stacksTxId?: string;
       claimStacksTxId?: string;
+      refundStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
+      refundedAt?: string;
       mobileMoneyRef?: string;
     }>;
   }>(`/api/transaction/wallet/${address}`, { requiresAuth: true });
+}
+
+export async function apiRefundTransfer(payload: {
+  transferId: string;
+  refundStacksTxId?: string;
+}) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+    transferId: string;
+    refundStacksTxId?: string;
+    refundedAt: string;
+  }>(`/api/transaction/${payload.transferId}/refund`, {
+    method: "POST",
+    requiresAuth: true,
+    body: { refundStacksTxId: payload.refundStacksTxId },
+  });
 }
 
 export async function apiGetWalletBalance(address: string) {

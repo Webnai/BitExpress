@@ -62,6 +62,17 @@ export interface ClaimRemittanceTxVerificationResult {
   reason?: string;
 }
 
+export interface RefundRemittanceTxVerificationInput {
+  txId: string;
+  senderWallet: string;
+  expectedOnChainTransferId: number;
+}
+
+export interface RefundRemittanceTxVerificationResult {
+  ok: boolean;
+  reason?: string;
+}
+
 function parseTransferIdFromTxResult(txResultRepr?: string): number | undefined {
   if (!txResultRepr) return undefined;
   const match = txResultRepr.match(/^\(ok u(\d+)\)$/);
@@ -233,5 +244,54 @@ export async function verifyClaimRemittanceTx(
     return { ok: true };
   } catch {
     return { ok: false, reason: "Unable to fetch or verify claim transaction from Stacks API." };
+  }
+}
+
+export async function verifyRefundRemittanceTx(
+  input: RefundRemittanceTxVerificationInput,
+): Promise<RefundRemittanceTxVerificationResult> {
+  try {
+    const txId = input.txId.trim();
+    if (!txId) {
+      return { ok: false, reason: "Missing stacks transaction ID." };
+    }
+
+    const response = await axios.get<StacksTxResponse>(
+      `${STACKS_API_BASE_URL}/extended/v1/tx/${txId}`,
+      { timeout: 10_000 },
+    );
+
+    const tx = response.data;
+
+    if (tx.tx_status !== "success") {
+      return { ok: false, reason: "Refund transaction is not successful yet." };
+    }
+
+    if (tx.tx_type !== "contract_call") {
+      return { ok: false, reason: "Refund transaction is not a contract call." };
+    }
+
+    if (!samePrincipal(tx.sender_address, input.senderWallet)) {
+      return { ok: false, reason: "On-chain refunder does not match authenticated sender wallet." };
+    }
+
+    const calledContractId = tx.contract_call?.contract_id;
+    if (!samePrincipal(calledContractId, REMITTANCE_CONTRACT_ID)) {
+      return { ok: false, reason: "Refund transaction did not call the remittance contract." };
+    }
+
+    if (tx.contract_call?.function_name !== "refund-remittance") {
+      return { ok: false, reason: "Transaction did not call refund-remittance." };
+    }
+
+    const transferIdArg = tx.contract_call?.function_args?.[0];
+    const transferIdFromTx = parseUintRepr(transferIdArg?.repr);
+    if (transferIdFromTx === undefined || transferIdFromTx !== input.expectedOnChainTransferId) {
+      return { ok: false, reason: "Refund transaction transfer-id does not match transfer record." };
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Unable to fetch or verify refund transaction from Stacks API." };
   }
 }

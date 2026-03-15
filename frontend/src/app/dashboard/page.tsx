@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import CountryFlag from "@/components/CountryFlag";
 import { useWallet } from "@/components/WalletProvider";
@@ -18,7 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiGetWalletBalance, apiGetWalletHistory } from "@/lib/api";
+import { apiGetWalletBalance, apiGetWalletHistory, apiRefundTransfer } from "@/lib/api";
+import { createRefundRemittanceTx, getStacksTxExplorerUrl } from "@/lib/stacks";
 
 type WalletHistoryEntry = {
   id: string;
@@ -32,11 +34,17 @@ type WalletHistoryEntry = {
   countryName?: string;
   payoutMethod: string;
   status: string;
+  onChainTransferId?: number;
   stacksTxId?: string;
+  claimStacksTxId?: string;
+  refundStacksTxId?: string;
   createdAt: string;
   claimedAt?: string;
+  refundedAt?: string;
   mobileMoneyRef?: string;
 };
+
+const REFUND_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 const STATUS_CLASS: Record<string, string> = {
   claimed: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
@@ -121,6 +129,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<WalletHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refundingTransferId, setRefundingTransferId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,6 +220,43 @@ export default function DashboardPage() {
 
   const recentActivity = useMemo(() => transactions.slice(0, 4), [transactions]);
   const recentTransactions = useMemo(() => transactions.slice(0, 10), [transactions]);
+
+  async function handleRefund(transfer: WalletHistoryEntry) {
+    if (transfer.onChainTransferId === undefined) {
+      toast.error("Missing on-chain transfer id for refund.");
+      return;
+    }
+
+    setRefundingTransferId(transfer.id);
+    try {
+      const refundTx = await createRefundRemittanceTx({ transferId: transfer.onChainTransferId });
+      toast.success("On-chain refund transaction broadcast.");
+
+      const response = await apiRefundTransfer({
+        transferId: transfer.id,
+        refundStacksTxId: refundTx.txid,
+      });
+
+      setTransactions((prev) =>
+        prev.map((entry) =>
+          entry.id === transfer.id
+            ? {
+                ...entry,
+                status: "refunded",
+                refundedAt: response.refundedAt,
+                refundStacksTxId: response.refundStacksTxId,
+              }
+            : entry,
+        ),
+      );
+
+      toast.success("Transfer refunded successfully.");
+    } catch (refundError) {
+      toast.error(refundError instanceof Error ? refundError.message : "Refund failed.");
+    } finally {
+      setRefundingTransferId(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f3f6fb]">
@@ -305,6 +351,7 @@ export default function DashboardPage() {
                       <TableHead className="text-[#8392aa] font-semibold">Country</TableHead>
                       <TableHead className="text-[#8392aa] font-semibold">Status</TableHead>
                       <TableHead className="text-[#8392aa] font-semibold">Method</TableHead>
+                      <TableHead className="text-[#8392aa] font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -312,6 +359,11 @@ export default function DashboardPage() {
                       const countryName = row.countryName || row.countryCode;
                       const displayName = row.counterpartyName || shortValue(row.counterpartyWallet);
                       const badgeClass = STATUS_CLASS[row.status] || "bg-slate-100 text-slate-700 hover:bg-slate-100";
+                      const isRefundable =
+                        row.direction === "sent" &&
+                        row.status === "pending" &&
+                        Date.now() - new Date(row.createdAt).getTime() >= REFUND_TIMEOUT_MS &&
+                        row.onChainTransferId !== undefined;
                       return (
                         <TableRow key={row.id} className="border-[#f1f4fa] hover:bg-[#fafbfe]">
                           <TableCell className="text-[#5f6f88]">
@@ -343,6 +395,29 @@ export default function DashboardPage() {
                             <Badge className={badgeClass}>{formatStatus(row.status)}</Badge>
                           </TableCell>
                           <TableCell className="text-[#5f6f88]">{formatMethod(row.payoutMethod)}</TableCell>
+                          <TableCell>
+                            {isRefundable ? (
+                              <button
+                                type="button"
+                                className="rounded-md border border-[#ff9c7f] px-2.5 py-1 text-[11px] font-semibold text-[#ff7448] hover:bg-[#fff6f2] disabled:opacity-60"
+                                onClick={() => void handleRefund(row)}
+                                disabled={refundingTransferId === row.id}
+                              >
+                                {refundingTransferId === row.id ? "Refunding..." : "Refund"}
+                              </button>
+                            ) : row.refundStacksTxId ? (
+                              <a
+                                href={getStacksTxExplorerUrl(row.refundStacksTxId)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-semibold text-[#4d78d0] hover:underline"
+                              >
+                                Refund tx
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-[#a0acbf]">-</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}

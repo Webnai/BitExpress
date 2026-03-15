@@ -80,6 +80,28 @@ export async function createClaimRemittanceTx(input: {
   return { txid: response.txid };
 }
 
+export async function createRefundRemittanceTx(input: {
+  transferId: number;
+}): Promise<{ txid: string }> {
+  const [{ request }, { Cl }] = await Promise.all([
+    import("@stacks/connect"),
+    import("@stacks/transactions"),
+  ]);
+
+  const response = (await request("stx_callContract", {
+    contract: CONTRACT_ID,
+    functionName: "refund-remittance",
+    functionArgs: [Cl.uint(input.transferId)],
+    network: STACKS_NETWORK,
+  })) as { txid?: string };
+
+  if (!response?.txid) {
+    throw new Error("Wallet did not return a transaction ID for refund-remittance.");
+  }
+
+  return { txid: response.txid };
+}
+
 export function getStacksTxExplorerUrl(txid: string): string {
   const normalizedTxid = txid.startsWith("0x") ? txid : `0x${txid}`;
   const baseUrl = STACKS_NETWORK === "mainnet"

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { SUPPORTED_COUNTRIES, TRANSFER_TIMEOUT_MS } from "../config";
 import { requireAuth } from "../middleware/auth";
 import { sendNotification } from "../services/notificationService";
+import { verifyRefundRemittanceTx } from "../services/stacksVerificationService";
 import { logRequestInfo } from "../utils/logging";
 
 const router = Router();
@@ -39,6 +40,7 @@ router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) 
         onChainTransferId: t.onChainTransferId,
         stacksTxId: t.stacksTxId,
         claimStacksTxId: t.claimStacksTxId,
+        refundStacksTxId: t.refundStacksTxId,
         createdAt: t.createdAt,
         claimedAt: t.claimedAt,
         mobileMoneyRef: t.mobileMoneyRef,
@@ -61,6 +63,7 @@ router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) 
         onChainTransferId: t.onChainTransferId,
         stacksTxId: t.stacksTxId,
         claimStacksTxId: t.claimStacksTxId,
+        refundStacksTxId: t.refundStacksTxId,
         createdAt: t.createdAt,
         claimedAt: t.claimedAt,
         mobileMoneyRef: t.mobileMoneyRef,
@@ -108,6 +111,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       onChainTransferId: transfer.onChainTransferId,
       stacksTxId: transfer.stacksTxId,
       claimStacksTxId: transfer.claimStacksTxId,
+      refundStacksTxId: transfer.refundStacksTxId,
       status: transfer.status,
       mobileMoneyRef: transfer.mobileMoneyRef,
       createdAt: transfer.createdAt,
@@ -126,6 +130,8 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
     res.status(401).json({ error: "Missing authenticated wallet context." });
     return;
   }
+
+  const { refundStacksTxId } = req.body as { refundStacksTxId?: string };
 
   const transfer = await db.getTransfer(id);
   if (!transfer) {
@@ -155,10 +161,40 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
+  if (process.env.NODE_ENV !== "test") {
+    if (!refundStacksTxId) {
+      res.status(400).json({
+        error: "refundStacksTxId is required and must reference a successful refund-remittance transaction.",
+      });
+      return;
+    }
+
+    if (transfer.onChainTransferId === undefined) {
+      res.status(400).json({
+        error: "Transfer is missing on-chain transfer ID and cannot be verified for refund.",
+      });
+      return;
+    }
+
+    const verification = await verifyRefundRemittanceTx({
+      txId: refundStacksTxId,
+      senderWallet,
+      expectedOnChainTransferId: transfer.onChainTransferId,
+    });
+
+    if (!verification.ok) {
+      res.status(400).json({
+        error: verification.reason || "Invalid refundStacksTxId for this refund.",
+      });
+      return;
+    }
+  }
+
   const now = new Date();
 
   await db.updateTransfer(id, {
     status: "refunded",
+    refundStacksTxId,
     refundedAt: now.toISOString(),
     updatedAt: now.toISOString(),
     updatedAtMs: now.getTime(),
@@ -184,6 +220,7 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
     success: true,
     message: "Transfer refunded successfully",
     transferId: id,
+    refundStacksTxId,
     refundedAt: now.toISOString(),
   });
 });

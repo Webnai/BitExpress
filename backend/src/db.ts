@@ -32,6 +32,7 @@ export interface Transfer extends AuditFields {
   claimCodeHash?: string;
   stacksTxId?: string;
   claimStacksTxId?: string;
+  refundStacksTxId?: string;
   status: "pending" | "claimed" | "refunded" | "failed";
   createdAt: string;
   updatedAt: string;
