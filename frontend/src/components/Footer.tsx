@@ -8,7 +8,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-3">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold text-[#ff7448]">₿ AfriSend</span>
+              <span className="text-xl font-bold text-[#ff7448]">₿ BitExpress</span>
             </Link>
             <p className="text-sm leading-relaxed max-w-[220px]">
               Send money across Africa instantly with Bitcoin-powered remittance.

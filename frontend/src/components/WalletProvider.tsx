@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  connect as stacksConnect,
-  disconnect as stacksDisconnect,
-  getLocalStorage,
-  getSelectedProviderId,
-  request as stacksRequest,
-} from "@stacks/connect";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { apiCreateAuthChallenge, apiVerifyWalletSignature } from "@/lib/api";
+import { STACKS_NETWORK } from "@/lib/stacks";
 import {
   getFirebaseIdToken,
   getFirebaseSessionWalletAddress,
@@ -44,6 +38,10 @@ interface WalletAddressEntry {
 const STORAGE_KEY = "bitexpress.wallet";
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
+
+async function loadStacksConnect() {
+  return import("@stacks/connect");
+}
 
 function pickAddressEntry(addresses: WalletAddressEntry[]): WalletAddressEntry | null {
   return addresses.find((a) => a.symbol?.toUpperCase() === "STX") ?? addresses[0] ?? null;
@@ -89,6 +87,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!candidateAddress || !candidateWalletName) {
+        const { getLocalStorage, getSelectedProviderId } = await loadStacksConnect();
         const connectStorage = getLocalStorage();
         const fallbackAddress =
           connectStorage?.addresses.stx[0]?.address ?? connectStorage?.addresses.btc[0]?.address ?? null;
@@ -131,8 +130,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
-      const result = await stacksConnect({
-        network: "mainnet",
+      const { connect, getSelectedProviderId, request } = await loadStacksConnect();
+      const result = await connect({
+        network: STACKS_NETWORK,
         forceWalletSelect: true,
         persistWalletSelect: true,
         enableLocalStorage: true,
@@ -156,7 +156,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw error;
       });
 
-      const signatureData = await stacksRequest("stx_signMessage", {
+      const signatureData = await request("stx_signMessage", {
         message: challenge.message,
         publicKey: connectedEntry?.publicKey,
       }).catch((error) => {
@@ -216,7 +216,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnectWallet = useCallback(async () => {
-    stacksDisconnect();
+    const { disconnect } = await loadStacksConnect();
+    disconnect();
     window.localStorage.removeItem(STORAGE_KEY);
     await signOutFirebaseSession();
     setAddress(null);

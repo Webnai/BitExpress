@@ -11,6 +11,12 @@ import {
   apiGetWalletHistory,
   apiSend,
 } from "@/lib/api";
+import {
+  createSendRemittanceTx,
+  generateClaimSecretHex,
+  getStacksTxExplorerUrl,
+  usdToUsdcxBaseUnits,
+} from "@/lib/stacks";
 
 const COUNTRY_OPTIONS = [
   { code: "GHA", name: "Ghana" },
@@ -99,8 +105,10 @@ export default function SendPage() {
   const [receiverWallet, setReceiverWallet] = useState("");
   const [amountUsdInput, setAmountUsdInput] = useState("20.00");
   const [method, setMethod] = useState<PayoutMethod>("crypto_wallet");
-  const [stacksTxId, setStacksTxId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingStacksTxId, setPendingStacksTxId] = useState<string | null>(null);
+  const [pendingClaimSecret, setPendingClaimSecret] = useState<string | null>(null);
+  const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [rates, setRates] = useState<ExchangeRateMap>({});
   const [countryMeta, setCountryMeta] = useState<CountryMetaMap>({});
   const [usdcxBalance, setUsdcxBalance] = useState<string | null>(null);
@@ -205,13 +213,40 @@ export default function SendPage() {
     isAmountValid &&
     isRecipientWalletValid &&
     isPhoneValid &&
-    isRecipientNameValid &&
-    Boolean(stacksTxId.trim());
+    isRecipientNameValid;
 
   const sendMaxLabel = useMemo(() => {
     if (connectedBalanceUsdcx === null) return null;
     return `${connectedBalanceUsdcx.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDCx connected`;
   }, [connectedBalanceUsdcx]);
+
+  function createIdempotencyKey() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  async function finalizeBackendTransfer(txid: string, idempotencyKey: string) {
+    const response = await apiSend({
+      receiverWallet: receiverWalletNormalized,
+      amountUsd,
+      sourceCountry,
+      destCountry,
+      recipientPhone: phoneNormalized || undefined,
+      recipientName: recipientNameNormalized || undefined,
+      payoutMethod: method,
+      stacksTxId: txid,
+      idempotencyKey,
+    });
+
+    setTransferResult({
+      id: response.transfer.id,
+      status: response.transfer.status,
+      fee: response.transfer.fee,
+      netAmount: response.transfer.netAmount,
+    });
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -241,30 +276,30 @@ export default function SendPage() {
       return;
     }
 
-    if (!stacksTxId.trim()) {
-      toast.error("A valid Stacks contract transaction ID is required.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const response = await apiSend({
-        receiverWallet: receiverWalletNormalized,
-        amountUsd,
-        sourceCountry,
-        destCountry,
-        recipientPhone: phoneNormalized || undefined,
-        recipientName: recipientNameNormalized || undefined,
-        payoutMethod: method,
-        stacksTxId: stacksTxId.trim() || undefined,
-      });
+      const idempotencyKey = submissionKey ?? createIdempotencyKey();
+      let txid = pendingStacksTxId;
 
-      setTransferResult({
-        id: response.transfer.id,
-        status: response.transfer.status,
-        fee: response.transfer.fee,
-        netAmount: response.transfer.netAmount,
-      });
+      if (!txid) {
+        const claimSecretHex = generateClaimSecretHex();
+        const contractCall = await createSendRemittanceTx({
+          receiverWallet: receiverWalletNormalized,
+          amountBaseUnits: usdToUsdcxBaseUnits(amountUsd),
+          sourceCountry,
+          destCountry,
+          claimSecretHex,
+        });
+
+        txid = contractCall.txid;
+        setPendingStacksTxId(txid);
+        setPendingClaimSecret(claimSecretHex);
+        setSubmissionKey(idempotencyKey);
+        toast.success("On-chain escrow transaction broadcast successfully.");
+      }
+
+      await finalizeBackendTransfer(txid, idempotencyKey);
+      setSubmissionKey(null);
 
       toast.success("Transfer created successfully.");
     } catch (error) {
@@ -417,14 +452,13 @@ export default function SendPage() {
             </div>
 
             <div className="mt-4 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-              <label className="mb-1 block text-[11px] text-[#7f8ea9]">Stacks Contract Tx ID</label>
-              <input
-                value={stacksTxId}
-                onChange={(e) => setStacksTxId(e.target.value)}
-                className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
-                placeholder="0x..."
-                required
-              />
+              <label className="mb-1 block text-[11px] text-[#7f8ea9]">On-Chain Escrow</label>
+              <p className="text-sm font-medium text-[#42526b]">
+                BitExpress will open your connected wallet and call the remittance contract automatically.
+              </p>
+              <p className="mt-1 text-[10px] text-[#7f8ea9]">
+                The backend finalizes the transfer after the wallet returns the broadcast transaction ID.
+              </p>
             </div>
 
             <div className="mt-7">
@@ -527,7 +561,13 @@ export default function SendPage() {
                 className="w-full rounded-xl bg-[#ff7448] px-4 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
                 disabled={isSubmitting || !canSubmitForm}
               >
-                {isSubmitting ? "Sending..." : "Send Money"}
+                {isSubmitting
+                  ? pendingStacksTxId
+                    ? "Finalizing transfer..."
+                    : "Opening wallet..."
+                  : pendingStacksTxId && !transferResult
+                    ? "Finalize Transfer"
+                    : "Send Money"}
               </button>
               <button
                 type="button"
@@ -536,12 +576,39 @@ export default function SendPage() {
                   setReceiverWallet("");
                   setRecipientName("");
                   setPhone("");
-                  setStacksTxId("");
+                  setPendingStacksTxId(null);
+                  setPendingClaimSecret(null);
+                  setSubmissionKey(null);
+                  setTransferResult(null);
                 }}
               >
                 Clear Form
               </button>
             </div>
+
+            {pendingStacksTxId ? (
+              <div className="mt-5 rounded-xl border border-[#dbe4f0] bg-[#fbfcff] p-4 text-xs text-[#42526b]">
+                <p className="font-semibold text-[#132a52]">On-Chain Transaction</p>
+                <p className="mt-2 break-all">Tx ID: {pendingStacksTxId}</p>
+                <a
+                  href={getStacksTxExplorerUrl(pendingStacksTxId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex text-[#ff7448] hover:underline"
+                >
+                  View in explorer
+                </a>
+                {pendingClaimSecret ? (
+                  <>
+                    <p className="mt-3 font-semibold text-[#132a52]">Claim secret</p>
+                    <p className="mt-1 break-all font-mono text-[11px]">{pendingClaimSecret}</p>
+                    <p className="mt-1 text-[10px] text-[#7f8ea9]">
+                      Save this secret. It is the 32-byte preimage used in the remittance contract call.
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
 
             {transferResult ? (
               <div className="mt-5 rounded-xl bg-[#f6f9fe] p-4 text-xs text-[#42526b]">
@@ -550,6 +617,7 @@ export default function SendPage() {
                 <p>Status: {transferResult.status}</p>
                 <p>Fee: ${transferResult.fee.toFixed(2)}</p>
                 <p>Net Amount: ${transferResult.netAmount.toFixed(2)}</p>
+                {pendingStacksTxId ? <p className="break-all">Stacks Tx: {pendingStacksTxId}</p> : null}
               </div>
             ) : null}
           </aside>

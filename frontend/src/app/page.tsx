@@ -188,35 +188,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="px-4 py-12" style={{ background: "var(--color-heading)" }}>
-        <div className="max-w-6xl mx-auto grid md:grid-cols-4 gap-8 text-white/80 text-sm">
-          <div>
-            <p className="text-xl font-bold text-white mb-3">BitExpress</p>
-            <p>Send money across Africa instantly with Bitcoin-powered remittances.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-white mb-3">Product</p>
-            <p className="mb-2">How it Works</p>
-            <p className="mb-2">Pricing</p>
-            <p>Countries</p>
-          </div>
-          <div>
-            <p className="font-semibold text-white mb-3">Company</p>
-            <p className="mb-2">About</p>
-            <p className="mb-2">Blog</p>
-            <p>Careers</p>
-          </div>
-          <div>
-            <p className="font-semibold text-white mb-3">Support</p>
-            <p className="mb-2">Help Center</p>
-            <p className="mb-2">Contact</p>
-            <p>FAQ</p>
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10 text-white/60 text-xs text-center">
-          © 2026 BitExpress. All rights reserved.
-        </div>
-      </footer>
     </div>
   );
 }
