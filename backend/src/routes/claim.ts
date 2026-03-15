@@ -104,6 +104,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         return;
       }
 
+      logRequestInfo(req, "claim.tx_verification_started", {
+        transferId,
+        claimStacksTxId,
+        expectedOnChainTransferId: transfer.onChainTransferId,
+      });
+
       const verification = await verifyClaimRemittanceTx({
         txId: claimStacksTxId,
         receiverWallet,
@@ -112,11 +118,21 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       });
 
       if (!verification.ok) {
+        logRequestInfo(req, "claim.tx_verification_failed", {
+          transferId,
+          claimStacksTxId,
+          reason: verification.reason,
+        });
         res.status(400).json({
           error: verification.reason || "Invalid claimStacksTxId for this claim.",
         });
         return;
       }
+
+      logRequestInfo(req, "claim.tx_verification_succeeded", {
+        transferId,
+        claimStacksTxId,
+      });
     }
 
     const localAmount = convertUsdToLocal(transfer.netAmount, transfer.destCountry);

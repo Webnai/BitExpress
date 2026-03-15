@@ -1,4 +1,5 @@
 import { getFirebaseIdToken } from "@/lib/firebaseAuth";
+import { logClientError, logClientInfo } from "@/lib/debug";
 import { API_BASE_URL } from "@/types";
 
 const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
@@ -17,12 +18,32 @@ function makeIdempotencyKey(): string {
   return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function parseJsonResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
+async function parseJsonResponse<T>(path: string, res: Response): Promise<T> {
+  const data = await res.clone().json().catch(async () => res.clone().text().catch(() => null));
+
+  logClientInfo("api.response", {
+    path,
+    status: res.status,
+    ok: res.ok,
+    data,
+  });
+
   if (!res.ok) {
-    const message = typeof data?.error === "string" ? data.error : `Request failed with status ${res.status}`;
+    const message =
+      typeof data === "object" && data !== null && typeof (data as { error?: unknown }).error === "string"
+        ? (data as { error: string }).error
+        : `Request failed with status ${res.status}`;
+
+    logClientError("api.response_error", {
+      path,
+      status: res.status,
+      data,
+      message,
+    });
+
     throw new Error(message);
   }
+
   return data as T;
 }
 
@@ -35,6 +56,7 @@ async function apiFetch<T>(
     idempotencyKey?: string;
   } = {}
 ): Promise<T> {
+  const method = options.method ?? "GET";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -51,13 +73,31 @@ async function apiFetch<T>(
     headers["Idempotency-Key"] = options.idempotencyKey;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+  logClientInfo("api.request", {
+    path,
+    method,
+    requiresAuth: Boolean(options.requiresAuth),
+    hasIdempotencyKey: Boolean(options.idempotencyKey),
+    body: options.body ?? null,
   });
 
-  return parseJsonResponse<T>(response);
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    return parseJsonResponse<T>(path, response);
+  } catch (error) {
+    logClientError("api.request_failed", {
+      path,
+      method,
+      message: error instanceof Error ? error.message : "unknown",
+      body: options.body ?? null,
+    });
+    throw error;
+  }
 }
 
 export async function apiCreateAuthChallenge(walletAddress: string) {
@@ -256,6 +296,15 @@ export async function apiRefundTransfer(payload: {
 export async function apiGetWalletBalance(address: string) {
   const isTestnet = address.startsWith("ST") || address.startsWith("SN");
   const baseUrl = isTestnet ? STACKS_TESTNET_API_BASE_URL : STACKS_MAINNET_API_BASE_URL;
+  const path = `/extended/v1/address/${address}/balances`;
+
+  logClientInfo("api.request", {
+    path,
+    method: "GET",
+    requiresAuth: false,
+    baseUrl,
+  });
+
   const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
     cache: "no-store",
   });
@@ -265,12 +314,21 @@ export async function apiGetWalletBalance(address: string) {
       total_sent: string;
       total_received: string;
     };
-  }>(res);
+  }>(path, res);
 }
 
 export async function apiGetSbtcBalance(address: string) {
   const isTestnet = address.startsWith("ST") || address.startsWith("SN");
   const baseUrl = isTestnet ? STACKS_TESTNET_API_BASE_URL : STACKS_MAINNET_API_BASE_URL;
+  const path = `/extended/v1/address/${address}/balances`;
+
+  logClientInfo("api.request", {
+    path,
+    method: "GET",
+    requiresAuth: false,
+    baseUrl,
+  });
+
   const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
     cache: "no-store",
   });
@@ -284,7 +342,7 @@ export async function apiGetSbtcBalance(address: string) {
         total_received?: string;
       }
     >;
-  }>(res);
+  }>(path, res);
 
   const token = data.fungible_tokens?.[SBTC_ASSET_IDENTIFIER];
   return {

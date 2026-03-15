@@ -185,6 +185,12 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    logRequestInfo(req, "transfer.refund_verification_started", {
+      transferId: id,
+      refundStacksTxId,
+      expectedOnChainTransferId: transfer.onChainTransferId,
+    });
+
     const verification = await verifyRefundRemittanceTx({
       txId: refundStacksTxId,
       senderWallet,
@@ -192,11 +198,21 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
     });
 
     if (!verification.ok) {
+      logRequestInfo(req, "transfer.refund_verification_failed", {
+        transferId: id,
+        refundStacksTxId,
+        reason: verification.reason,
+      });
       res.status(400).json({
         error: verification.reason || "Invalid refundStacksTxId for this refund.",
       });
       return;
     }
+
+    logRequestInfo(req, "transfer.refund_verification_succeeded", {
+      transferId: id,
+      refundStacksTxId,
+    });
   }
 
   const now = new Date();

@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { CONTRACT_ADDRESS, CONTRACT_NAME, STACKS_NETWORK } from "../config";
+import { logError, logInfo } from "../utils/logging";
 
 interface ContractCallInfo {
   contract_id?: string;
@@ -114,12 +115,42 @@ function samePrincipal(a?: string, b?: string): boolean {
   return normalizePrincipal(a) === normalizePrincipal(b);
 }
 
+function buildTxStatusFailureReason(
+  status: string | undefined,
+  txResultRepr: string | undefined,
+  actionLabel: string,
+): string {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "success") {
+    return "";
+  }
+
+  if (normalized.startsWith("abort") || normalized.startsWith("failed")) {
+    return txResultRepr
+      ? `${actionLabel} failed on-chain (${status}): ${txResultRepr}`
+      : `${actionLabel} failed on-chain (${status}).`;
+  }
+
+  return `${actionLabel} is not successful yet.`;
+}
+
 export async function verifySendRemittanceTx(
   input: SendRemittanceTxVerificationInput,
 ): Promise<SendRemittanceTxVerificationResult> {
+  const txId = input.txId.trim();
+
+  logInfo("stacks.verify_send.start", {
+    txId,
+    senderWallet: input.senderWallet,
+    expectedAmount: input.expectedAmount,
+  });
+
   try {
-    const txId = input.txId.trim();
     if (!txId) {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "Missing stacks transaction ID.",
+      });
       return { ok: false, reason: "Missing stacks transaction ID." };
     }
 
@@ -130,24 +161,67 @@ export async function verifySendRemittanceTx(
 
     const tx = response.data;
 
+    logInfo("stacks.verify_send.tx", {
+      txId,
+      txStatus: tx.tx_status,
+      txType: tx.tx_type,
+      senderAddress: tx.sender_address,
+      contractId: tx.contract_call?.contract_id,
+      functionName: tx.contract_call?.function_name,
+      eventCount: tx.events?.length ?? 0,
+    });
+
     if (tx.tx_status !== "success") {
-      return { ok: false, reason: "Transaction is not successful yet." };
+      const reason = buildTxStatusFailureReason(
+        tx.tx_status,
+        tx.tx_result?.repr,
+        "Transaction",
+      );
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason,
+        txStatus: tx.tx_status,
+        txResultRepr: tx.tx_result?.repr,
+      });
+      return { ok: false, reason };
     }
 
     if (tx.tx_type !== "contract_call") {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "Transaction is not a contract call.",
+        txType: tx.tx_type,
+      });
       return { ok: false, reason: "Transaction is not a contract call." };
     }
 
     if (!samePrincipal(tx.sender_address, input.senderWallet)) {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "On-chain sender does not match authenticated wallet.",
+        senderAddress: tx.sender_address,
+        expectedSender: input.senderWallet,
+      });
       return { ok: false, reason: "On-chain sender does not match authenticated wallet." };
     }
 
     const calledContractId = tx.contract_call?.contract_id;
     if (!samePrincipal(calledContractId, REMITTANCE_CONTRACT_ID)) {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "Transaction did not call the remittance contract.",
+        calledContractId,
+        expectedContractId: REMITTANCE_CONTRACT_ID,
+      });
       return { ok: false, reason: "Transaction did not call the remittance contract." };
     }
 
     if (tx.contract_call?.function_name !== "send-remittance") {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "Transaction did not call send-remittance.",
+        functionName: tx.contract_call?.function_name,
+      });
       return { ok: false, reason: "Transaction did not call send-remittance." };
     }
 
@@ -171,6 +245,15 @@ export async function verifySendRemittanceTx(
     });
 
     if (!hasExpectedEscrowTransfer) {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason:
+          "Transaction is missing expected sBTC escrow transfer event (sender -> remittance contract, exact amount).",
+        expectedAssetId: SBTC_ASSET_IDENTIFIER,
+        expectedSender: input.senderWallet,
+        expectedRecipient: REMITTANCE_CONTRACT_ID,
+        expectedAmount,
+      });
       return {
         ok: false,
         reason:
@@ -180,14 +263,28 @@ export async function verifySendRemittanceTx(
 
     const onChainTransferId = parseTransferIdFromTxResult(tx.tx_result?.repr);
     if (onChainTransferId === undefined) {
+      logInfo("stacks.verify_send.failed", {
+        txId,
+        reason: "Unable to parse remittance transfer ID from transaction result.",
+        txResultRepr: tx.tx_result?.repr,
+      });
       return {
         ok: false,
         reason: "Unable to parse remittance transfer ID from transaction result.",
       };
     }
 
+    logInfo("stacks.verify_send.succeeded", {
+      txId,
+      onChainTransferId,
+    });
+
     return { ok: true, onChainTransferId };
-  } catch {
+  } catch (error) {
+    logError("stacks.verify_send.error", {
+      txId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return { ok: false, reason: "Unable to fetch or verify transaction from Stacks API." };
   }
 }
@@ -195,9 +292,20 @@ export async function verifySendRemittanceTx(
 export async function verifyClaimRemittanceTx(
   input: ClaimRemittanceTxVerificationInput,
 ): Promise<ClaimRemittanceTxVerificationResult> {
+  const txId = input.txId.trim();
+
+  logInfo("stacks.verify_claim.start", {
+    txId,
+    receiverWallet: input.receiverWallet,
+    expectedOnChainTransferId: input.expectedOnChainTransferId,
+  });
+
   try {
-    const txId = input.txId.trim();
     if (!txId) {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Missing stacks transaction ID.",
+      });
       return { ok: false, reason: "Missing stacks transaction ID." };
     }
 
@@ -208,24 +316,66 @@ export async function verifyClaimRemittanceTx(
 
     const tx = response.data;
 
+    logInfo("stacks.verify_claim.tx", {
+      txId,
+      txStatus: tx.tx_status,
+      txType: tx.tx_type,
+      senderAddress: tx.sender_address,
+      contractId: tx.contract_call?.contract_id,
+      functionName: tx.contract_call?.function_name,
+    });
+
     if (tx.tx_status !== "success") {
-      return { ok: false, reason: "Claim transaction is not successful yet." };
+      const reason = buildTxStatusFailureReason(
+        tx.tx_status,
+        tx.tx_result?.repr,
+        "Claim transaction",
+      );
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason,
+        txStatus: tx.tx_status,
+        txResultRepr: tx.tx_result?.repr,
+      });
+      return { ok: false, reason };
     }
 
     if (tx.tx_type !== "contract_call") {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Claim transaction is not a contract call.",
+        txType: tx.tx_type,
+      });
       return { ok: false, reason: "Claim transaction is not a contract call." };
     }
 
     if (!samePrincipal(tx.sender_address, input.receiverWallet)) {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "On-chain claimer does not match authenticated receiver wallet.",
+        senderAddress: tx.sender_address,
+        expectedReceiver: input.receiverWallet,
+      });
       return { ok: false, reason: "On-chain claimer does not match authenticated receiver wallet." };
     }
 
     const calledContractId = tx.contract_call?.contract_id;
     if (!samePrincipal(calledContractId, REMITTANCE_CONTRACT_ID)) {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Claim transaction did not call the remittance contract.",
+        calledContractId,
+        expectedContractId: REMITTANCE_CONTRACT_ID,
+      });
       return { ok: false, reason: "Claim transaction did not call the remittance contract." };
     }
 
     if (tx.contract_call?.function_name !== "claim-remittance") {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Transaction did not call claim-remittance.",
+        functionName: tx.contract_call?.function_name,
+      });
       return { ok: false, reason: "Transaction did not call claim-remittance." };
     }
 
@@ -234,6 +384,12 @@ export async function verifyClaimRemittanceTx(
 
     const transferIdFromTx = parseUintRepr(transferIdArg?.repr);
     if (transferIdFromTx === undefined || transferIdFromTx !== input.expectedOnChainTransferId) {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Claim transaction transfer-id does not match transfer record.",
+        transferIdFromTx,
+        expectedTransferId: input.expectedOnChainTransferId,
+      });
       return { ok: false, reason: "Claim transaction transfer-id does not match transfer record." };
     }
 
@@ -241,11 +397,24 @@ export async function verifyClaimRemittanceTx(
     const expectedClaimSecret = normalizeHexBuffer(input.expectedClaimSecretHex);
 
     if (!claimSecretFromTx || claimSecretFromTx !== expectedClaimSecret) {
+      logInfo("stacks.verify_claim.failed", {
+        txId,
+        reason: "Claim transaction claim secret does not match provided claim secret.",
+      });
       return { ok: false, reason: "Claim transaction claim secret does not match provided claim secret." };
     }
 
+    logInfo("stacks.verify_claim.succeeded", {
+      txId,
+      transferId: transferIdFromTx,
+    });
+
     return { ok: true };
-  } catch {
+  } catch (error) {
+    logError("stacks.verify_claim.error", {
+      txId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return { ok: false, reason: "Unable to fetch or verify claim transaction from Stacks API." };
   }
 }
@@ -253,9 +422,20 @@ export async function verifyClaimRemittanceTx(
 export async function verifyRefundRemittanceTx(
   input: RefundRemittanceTxVerificationInput,
 ): Promise<RefundRemittanceTxVerificationResult> {
+  const txId = input.txId.trim();
+
+  logInfo("stacks.verify_refund.start", {
+    txId,
+    senderWallet: input.senderWallet,
+    expectedOnChainTransferId: input.expectedOnChainTransferId,
+  });
+
   try {
-    const txId = input.txId.trim();
     if (!txId) {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "Missing stacks transaction ID.",
+      });
       return { ok: false, reason: "Missing stacks transaction ID." };
     }
 
@@ -266,35 +446,92 @@ export async function verifyRefundRemittanceTx(
 
     const tx = response.data;
 
+    logInfo("stacks.verify_refund.tx", {
+      txId,
+      txStatus: tx.tx_status,
+      txType: tx.tx_type,
+      senderAddress: tx.sender_address,
+      contractId: tx.contract_call?.contract_id,
+      functionName: tx.contract_call?.function_name,
+    });
+
     if (tx.tx_status !== "success") {
-      return { ok: false, reason: "Refund transaction is not successful yet." };
+      const reason = buildTxStatusFailureReason(
+        tx.tx_status,
+        tx.tx_result?.repr,
+        "Refund transaction",
+      );
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason,
+        txStatus: tx.tx_status,
+        txResultRepr: tx.tx_result?.repr,
+      });
+      return { ok: false, reason };
     }
 
     if (tx.tx_type !== "contract_call") {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "Refund transaction is not a contract call.",
+        txType: tx.tx_type,
+      });
       return { ok: false, reason: "Refund transaction is not a contract call." };
     }
 
     if (!samePrincipal(tx.sender_address, input.senderWallet)) {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "On-chain refunder does not match authenticated sender wallet.",
+        senderAddress: tx.sender_address,
+        expectedSender: input.senderWallet,
+      });
       return { ok: false, reason: "On-chain refunder does not match authenticated sender wallet." };
     }
 
     const calledContractId = tx.contract_call?.contract_id;
     if (!samePrincipal(calledContractId, REMITTANCE_CONTRACT_ID)) {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "Refund transaction did not call the remittance contract.",
+        calledContractId,
+        expectedContractId: REMITTANCE_CONTRACT_ID,
+      });
       return { ok: false, reason: "Refund transaction did not call the remittance contract." };
     }
 
     if (tx.contract_call?.function_name !== "refund-remittance") {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "Transaction did not call refund-remittance.",
+        functionName: tx.contract_call?.function_name,
+      });
       return { ok: false, reason: "Transaction did not call refund-remittance." };
     }
 
     const transferIdArg = tx.contract_call?.function_args?.[0];
     const transferIdFromTx = parseUintRepr(transferIdArg?.repr);
     if (transferIdFromTx === undefined || transferIdFromTx !== input.expectedOnChainTransferId) {
+      logInfo("stacks.verify_refund.failed", {
+        txId,
+        reason: "Refund transaction transfer-id does not match transfer record.",
+        transferIdFromTx,
+        expectedTransferId: input.expectedOnChainTransferId,
+      });
       return { ok: false, reason: "Refund transaction transfer-id does not match transfer record." };
     }
 
+    logInfo("stacks.verify_refund.succeeded", {
+      txId,
+      transferId: transferIdFromTx,
+    });
+
     return { ok: true };
-  } catch {
+  } catch (error) {
+    logError("stacks.verify_refund.error", {
+      txId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return { ok: false, reason: "Unable to fetch or verify refund transaction from Stacks API." };
   }
 }

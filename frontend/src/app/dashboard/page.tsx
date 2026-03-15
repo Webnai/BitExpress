@@ -20,7 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiGetWalletBalance, apiGetWalletHistory, apiRefundTransfer } from "@/lib/api";
-import { createRefundRemittanceTx, getStacksTxExplorerUrl } from "@/lib/stacks";
+import { logClientError, logClientInfo } from "@/lib/debug";
+import { createRefundRemittanceTx, getStacksTxExplorerUrl, waitForStacksTxSuccess } from "@/lib/stacks";
 
 type WalletHistoryEntry = {
   id: string;
@@ -159,8 +160,18 @@ export default function DashboardPage() {
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           ),
         );
+        logClientInfo("dashboard.loaded", {
+          address,
+          balance: balance.stx.balance,
+          sentCount: history.sent.length,
+          receivedCount: history.received.length,
+        });
       } catch (loadError) {
         if (cancelled) return;
+        logClientError("dashboard.load_failed", {
+          address,
+          message: loadError instanceof Error ? loadError.message : "unknown",
+        });
         setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard data.");
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -229,12 +240,34 @@ export default function DashboardPage() {
 
     setRefundingTransferId(transfer.id);
     try {
+      logClientInfo("dashboard.refund.started", {
+        transferId: transfer.id,
+        onChainTransferId: transfer.onChainTransferId,
+      });
       const refundTx = await createRefundRemittanceTx({ transferId: transfer.onChainTransferId });
+      logClientInfo("dashboard.refund.broadcasted", {
+        transferId: transfer.id,
+        refundTxId: refundTx.txid,
+      });
       toast.success("On-chain refund transaction broadcast.");
+
+      logClientInfo("dashboard.refund_confirmation_wait.started", {
+        transferId: transfer.id,
+        refundTxId: refundTx.txid,
+      });
+      await waitForStacksTxSuccess(refundTx.txid);
+      logClientInfo("dashboard.refund_confirmation_wait.succeeded", {
+        transferId: transfer.id,
+        refundTxId: refundTx.txid,
+      });
 
       const response = await apiRefundTransfer({
         transferId: transfer.id,
         refundStacksTxId: refundTx.txid,
+      });
+      logClientInfo("dashboard.refund.succeeded", {
+        transferId: transfer.id,
+        refundTxId: response.refundStacksTxId,
       });
 
       setTransactions((prev) =>
@@ -252,6 +285,10 @@ export default function DashboardPage() {
 
       toast.success("Transfer refunded successfully.");
     } catch (refundError) {
+      logClientError("dashboard.refund.failed", {
+        transferId: transfer.id,
+        message: refundError instanceof Error ? refundError.message : "unknown",
+      });
       toast.error(refundError instanceof Error ? refundError.message : "Refund failed.");
     } finally {
       setRefundingTransferId(null);

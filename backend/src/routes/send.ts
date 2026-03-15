@@ -161,6 +161,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         return;
       }
 
+      logRequestInfo(req, "send.tx_verification_started", {
+        stacksTxId,
+        senderWallet,
+        expectedAmount: sbtcAmount,
+      });
+
       const verification = await verifySendRemittanceTx({
         txId: stacksTxId,
         senderWallet,
@@ -168,6 +174,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       });
 
       if (!verification.ok) {
+        logRequestInfo(req, "send.tx_verification_failed", {
+          stacksTxId,
+          reason: verification.reason,
+        });
         res.status(400).json({
           error: verification.reason || "Invalid stacksTxId for this transfer.",
         });
@@ -175,6 +185,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       }
 
       onChainTransferId = verification.onChainTransferId;
+
+      logRequestInfo(req, "send.tx_verification_succeeded", {
+        stacksTxId,
+        onChainTransferId,
+      });
     }
 
     const transferId = uuidv4();

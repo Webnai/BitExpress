@@ -24,10 +24,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClaim, apiGetTransaction, apiGetWalletHistory, apiGetExchangeRates } from "@/lib/api";
+import { logClientError, logClientInfo } from "@/lib/debug";
 import {
   createClaimRemittanceTx,
   getStacksTxExplorerUrl,
   normalizeClaimSecretHex,
+  waitForStacksTxSuccess,
 } from "@/lib/stacks";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,8 +128,15 @@ export default function ReceivePage() {
       .then((data) => {
         const first = Object.values(data.rates)[0];
         if (first?.btcUsdPrice) setBtcUsdPrice(first.btcUsdPrice);
+        logClientInfo("receive.exchange_rates.loaded", {
+          rateCount: Object.keys(data.rates).length,
+        });
       })
-      .catch(() => {});
+      .catch((error) => {
+        logClientError("receive.exchange_rates.failed", {
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      });
   }, []);
 
   // Load recent receives from wallet history
@@ -145,6 +154,10 @@ export default function ReceivePage() {
           }));
 
         setRecentReceives(received);
+        logClientInfo("receive.history.loaded", {
+          address,
+          count: received.length,
+        });
 
         if (!hasAutoLoaded && !searchParams.get("id") && received.length > 0) {
           setTransferId(received[0].id);
@@ -152,7 +165,12 @@ export default function ReceivePage() {
           setHasAutoLoaded(true);
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        logClientError("receive.history.failed", {
+          address,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      });
   }, [address, hasAutoLoaded, searchParams]);
 
   // Load transfer from query string: /receive?id=TX-...
@@ -167,12 +185,21 @@ export default function ReceivePage() {
   async function fetchTransaction(id: string) {
     setIsLoading(true);
     try {
+      logClientInfo("receive.transaction_fetch.started", { transferId: id.trim() });
       const data = await apiGetTransaction(id.trim());
       setTransaction(data.transaction);
       setSelectedMethod((data.transaction.payoutMethod as WithdrawalMethod) ?? "mobile_money");
       setClaimedAt(data.transaction.claimedAt ?? null);
+      logClientInfo("receive.transaction_fetch.succeeded", {
+        transferId: data.transaction.id,
+        status: data.transaction.status,
+      });
       toast.success("Transaction loaded.");
     } catch (err) {
+      logClientError("receive.transaction_fetch.failed", {
+        transferId: id.trim(),
+        message: err instanceof Error ? err.message : "unknown",
+      });
       toast.error(err instanceof Error ? err.message : "Failed to load transaction.");
       setTransaction(null);
     } finally {
@@ -210,23 +237,50 @@ export default function ReceivePage() {
     setIsClaiming(true);
     try {
       const normalizedClaimSecret = normalizeClaimSecretHex(claimSecretInput);
+      logClientInfo("receive.claim.started", {
+        transferId: transaction.id,
+        onChainTransferId: transaction.onChainTransferId,
+      });
       const claimTx = await createClaimRemittanceTx({
         transferId: transaction.onChainTransferId,
         claimSecretHex: normalizedClaimSecret,
       });
 
       setClaimTxId(claimTx.txid);
+      logClientInfo("receive.claim.broadcasted", {
+        transferId: transaction.id,
+        claimTxId: claimTx.txid,
+      });
       toast.success("On-chain claim transaction broadcast.");
+
+      logClientInfo("receive.claim_confirmation_wait.started", {
+        transferId: transaction.id,
+        claimTxId: claimTx.txid,
+      });
+      await waitForStacksTxSuccess(claimTx.txid);
+      logClientInfo("receive.claim_confirmation_wait.succeeded", {
+        transferId: transaction.id,
+        claimTxId: claimTx.txid,
+      });
 
       const res = await apiClaim({
         transferId: transaction.id,
         claimCode: normalizedClaimSecret,
         claimStacksTxId: claimTx.txid,
       });
+      logClientInfo("receive.claim.succeeded", {
+        transferId: transaction.id,
+        claimTxId: claimTx.txid,
+        status: res.transfer.status,
+      });
       setClaimedAt(res.transfer.claimedAt ?? new Date().toISOString());
       setTransaction((prev) => (prev ? { ...prev, status: "claimed" } : prev));
       toast.success("Funds claimed successfully!");
     } catch (err) {
+      logClientError("receive.claim.failed", {
+        transferId: transaction.id,
+        message: err instanceof Error ? err.message : "unknown",
+      });
       toast.error(err instanceof Error ? err.message : "Claim failed.");
     } finally {
       setIsClaiming(false);

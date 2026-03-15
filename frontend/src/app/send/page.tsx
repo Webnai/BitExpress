@@ -15,8 +15,10 @@ import {
   createSendRemittanceTx,
   generateClaimSecretHex,
   getStacksTxExplorerUrl,
+  waitForStacksTxSuccess,
   usdToSbtcSatoshis,
 } from "@/lib/stacks";
+import { logClientError, logClientInfo } from "@/lib/debug";
 import { Copy, Check } from "lucide-react";
 
 const COUNTRY_OPTIONS = [
@@ -140,8 +142,14 @@ export default function SendPage() {
         setCountryMeta(
           Object.fromEntries(response.supportedCountries.map((entry) => [entry.code, entry])) as CountryMetaMap,
         );
+        logClientInfo("send.exchange_rates.loaded", {
+          countries: response.supportedCountries.map((entry) => entry.code),
+        });
       } catch (error) {
         if (!cancelled) {
+          logClientError("send.exchange_rates.failed", {
+            message: error instanceof Error ? error.message : "unknown",
+          });
           toast.error(error instanceof Error ? error.message : "Failed to load exchange rates.");
         }
       }
@@ -173,6 +181,15 @@ export default function SendPage() {
 
       if (balanceResult.status === "fulfilled") {
         setSbtcBalance(balanceResult.value.balance);
+        logClientInfo("send.wallet_balance.loaded", {
+          address,
+          balance: balanceResult.value.balance,
+        });
+      } else {
+        logClientError("send.wallet_balance.failed", {
+          address,
+          message: balanceResult.reason instanceof Error ? balanceResult.reason.message : "unknown",
+        });
       }
 
       if (historyResult.status === "fulfilled") {
@@ -188,6 +205,15 @@ export default function SendPage() {
           })
           .slice(0, 4);
         setRecentRecipients(recipients);
+        logClientInfo("send.recipients.loaded", {
+          address,
+          recipients: recipients.length,
+        });
+      } else {
+        logClientError("send.recipients.failed", {
+          address,
+          message: historyResult.reason instanceof Error ? historyResult.reason.message : "unknown",
+        });
       }
     }
 
@@ -266,6 +292,13 @@ export default function SendPage() {
   }
 
   async function finalizeBackendTransfer(txid: string, idempotencyKey: string) {
+    logClientInfo("send.backend_finalize.started", {
+      txid,
+      idempotencyKey,
+      amountUsd,
+      payoutMethod: method,
+    });
+
     const response = await apiSend({
       receiverWallet: receiverWalletNormalized,
       amountUsd,
@@ -285,6 +318,14 @@ export default function SendPage() {
       fee: response.transfer.fee,
       netAmount: response.transfer.netAmount,
     });
+
+    logClientInfo("send.backend_finalize.succeeded", {
+      txid,
+      transferId: response.transfer.id,
+      status: response.transfer.status,
+    });
+
+    return response;
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -330,6 +371,16 @@ export default function SendPage() {
       const idempotencyKey = submissionKey ?? createIdempotencyKey();
       let txid = pendingStacksTxId;
 
+      logClientInfo("send.submit.started", {
+        senderWallet: address,
+        receiverWallet: receiverWalletNormalized,
+        amountUsd,
+        sourceCountry,
+        destCountry,
+        payoutMethod: method,
+        pendingStacksTxId: txid,
+      });
+
       if (!txid) {
         const claimSecretHex = generateClaimSecretHex();
         const contractCall = await createSendRemittanceTx({
@@ -341,17 +392,35 @@ export default function SendPage() {
         });
 
         txid = contractCall.txid;
+        logClientInfo("send.contract_broadcasted", {
+          txid,
+          receiverWallet: receiverWalletNormalized,
+        });
         setPendingStacksTxId(txid);
         setPendingClaimSecret(claimSecretHex);
         setSubmissionKey(idempotencyKey);
         toast.success("On-chain escrow transaction broadcast successfully.");
+
+        logClientInfo("send.tx_confirmation_wait.started", { txid });
+        await waitForStacksTxSuccess(txid);
+        logClientInfo("send.tx_confirmation_wait.succeeded", { txid });
       }
 
-      await finalizeBackendTransfer(txid, idempotencyKey);
+      const backendResponse = await finalizeBackendTransfer(txid, idempotencyKey);
       setSubmissionKey(null);
+
+      logClientInfo("send.submit.succeeded", {
+        txid,
+        transferId: backendResponse.transfer.id,
+        status: backendResponse.transfer.status,
+      });
 
       toast.success("Transfer created successfully.");
     } catch (error) {
+      logClientError("send.submit.failed", {
+        message: error instanceof Error ? error.message : "unknown",
+        pendingStacksTxId,
+      });
       toast.error(error instanceof Error ? error.message : "Failed to send transfer.");
     } finally {
       setIsSubmitting(false);
