@@ -31,6 +31,7 @@ export interface Transfer extends AuditFields {
   payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
   claimCodeHash?: string;
   stacksTxId?: string;
+  claimStacksTxId?: string;
   status: "pending" | "claimed" | "refunded" | "failed";
   createdAt: string;
   updatedAt: string;

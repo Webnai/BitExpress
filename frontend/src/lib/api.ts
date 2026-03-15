@@ -123,6 +123,7 @@ export async function apiSend(payload: {
 export async function apiClaim(payload: {
   transferId: string;
   claimCode?: string;
+  claimStacksTxId?: string;
   idempotencyKey?: string;
 }) {
   const { idempotencyKey, ...body } = payload;
@@ -165,6 +166,7 @@ export async function apiGetTransaction(id: string) {
       recipientPhone?: string;
       recipientName?: string;
       payoutMethod?: string;
+      claimStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
       mobileMoneyRef?: string;
@@ -188,6 +190,7 @@ export async function apiGetWalletHistory(address: string) {
       status: string;
       onChainTransferId?: number;
       stacksTxId?: string;
+      claimStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
       mobileMoneyRef?: string;
@@ -206,6 +209,7 @@ export async function apiGetWalletHistory(address: string) {
       status: string;
       onChainTransferId?: number;
       stacksTxId?: string;
+      claimStacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
       mobileMoneyRef?: string;

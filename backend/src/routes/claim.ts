@@ -12,6 +12,7 @@ import {
   saveIdempotentResponse,
 } from "../utils/idempotency";
 import { logRequestError, logRequestInfo } from "../utils/logging";
+import { verifyClaimRemittanceTx } from "../services/stacksVerificationService";
 
 const router = Router();
 
@@ -25,7 +26,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { transferId, claimCode } = req.body as { transferId?: string; claimCode?: string };
+    const { transferId, claimCode, claimStacksTxId } = req.body as {
+      transferId?: string;
+      claimCode?: string;
+      claimStacksTxId?: string;
+    };
 
     if (!transferId) {
       res.status(400).json({
@@ -44,6 +49,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       transferId,
       receiverWallet,
       claimCode: claimCode ?? null,
+      claimStacksTxId: claimStacksTxId ?? null,
     });
 
     const existing = await getIdempotentResponse("claim", idempotencyKey, requestHash);
@@ -78,6 +84,41 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    if (process.env.NODE_ENV !== "test") {
+      if (!claimCode) {
+        res.status(400).json({ error: "claimCode is required for on-chain claim verification." });
+        return;
+      }
+
+      if (!claimStacksTxId) {
+        res.status(400).json({
+          error: "claimStacksTxId is required and must reference a successful claim-remittance transaction.",
+        });
+        return;
+      }
+
+      if (transfer.onChainTransferId === undefined) {
+        res.status(400).json({
+          error: "Transfer is missing on-chain transfer ID and cannot be verified for claim.",
+        });
+        return;
+      }
+
+      const verification = await verifyClaimRemittanceTx({
+        txId: claimStacksTxId,
+        receiverWallet,
+        expectedOnChainTransferId: transfer.onChainTransferId,
+        expectedClaimSecretHex: claimCode,
+      });
+
+      if (!verification.ok) {
+        res.status(400).json({
+          error: verification.reason || "Invalid claimStacksTxId for this claim.",
+        });
+        return;
+      }
+    }
+
     const localAmount = convertUsdToLocal(transfer.netAmount, transfer.destCountry);
 
     const payoutResult = await processPayout(
@@ -105,6 +146,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const updatedTransfer = await db.updateTransfer(transferId, {
       status: "claimed",
       claimedAt: now.toISOString(),
+      claimStacksTxId,
       mobileMoneyRef: payoutResult.reference,
       updatedAt: now.toISOString(),
       updatedAtMs: now.getTime(),

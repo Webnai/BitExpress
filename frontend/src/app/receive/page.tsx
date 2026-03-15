@@ -36,6 +36,7 @@ interface LoadedTransaction {
   sender: string;
   receiver: string;
   onChainTransferId?: number;
+  claimStacksTxId?: string;
   amountUsd: number;
   fee: number;
   netAmount: number;
@@ -220,6 +221,7 @@ export default function ReceivePage() {
       const res = await apiClaim({
         transferId: transaction.id,
         claimCode: normalizedClaimSecret,
+        claimStacksTxId: claimTx.txid,
       });
       setClaimedAt(res.transfer.claimedAt ?? new Date().toISOString());
       setTransaction((prev) => (prev ? { ...prev, status: "claimed" } : prev));

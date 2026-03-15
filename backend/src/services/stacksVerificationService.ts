@@ -5,6 +5,10 @@ import { CONTRACT_ADDRESS, CONTRACT_NAME, STACKS_NETWORK } from "../config";
 interface ContractCallInfo {
   contract_id?: string;
   function_name?: string;
+  function_args?: Array<{
+    repr?: string;
+    hex?: string;
+  }>;
 }
 
 interface FungibleAssetDetails {
@@ -46,6 +50,18 @@ export interface SendRemittanceTxVerificationResult {
   onChainTransferId?: number;
 }
 
+export interface ClaimRemittanceTxVerificationInput {
+  txId: string;
+  receiverWallet: string;
+  expectedOnChainTransferId: number;
+  expectedClaimSecretHex: string;
+}
+
+export interface ClaimRemittanceTxVerificationResult {
+  ok: boolean;
+  reason?: string;
+}
+
 function parseTransferIdFromTxResult(txResultRepr?: string): number | undefined {
   if (!txResultRepr) return undefined;
   const match = txResultRepr.match(/^\(ok u(\d+)\)$/);
@@ -53,6 +69,19 @@ function parseTransferIdFromTxResult(txResultRepr?: string): number | undefined 
   const parsed = Number(match[1]);
   if (!Number.isSafeInteger(parsed) || parsed < 0) return undefined;
   return parsed;
+}
+
+function parseUintRepr(repr?: string): number | undefined {
+  if (!repr) return undefined;
+  const match = repr.match(/^u(\d+)$/);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return undefined;
+  return parsed;
+}
+
+function normalizeHexBuffer(value?: string): string {
+  return (value || "").trim().toLowerCase().replace(/^0x/, "");
 }
 
 const STACKS_API_BASE_URL =
@@ -146,5 +175,63 @@ export async function verifySendRemittanceTx(
     return { ok: true, onChainTransferId };
   } catch {
     return { ok: false, reason: "Unable to fetch or verify transaction from Stacks API." };
+  }
+}
+
+export async function verifyClaimRemittanceTx(
+  input: ClaimRemittanceTxVerificationInput,
+): Promise<ClaimRemittanceTxVerificationResult> {
+  try {
+    const txId = input.txId.trim();
+    if (!txId) {
+      return { ok: false, reason: "Missing stacks transaction ID." };
+    }
+
+    const response = await axios.get<StacksTxResponse>(
+      `${STACKS_API_BASE_URL}/extended/v1/tx/${txId}`,
+      { timeout: 10_000 },
+    );
+
+    const tx = response.data;
+
+    if (tx.tx_status !== "success") {
+      return { ok: false, reason: "Claim transaction is not successful yet." };
+    }
+
+    if (tx.tx_type !== "contract_call") {
+      return { ok: false, reason: "Claim transaction is not a contract call." };
+    }
+
+    if (!samePrincipal(tx.sender_address, input.receiverWallet)) {
+      return { ok: false, reason: "On-chain claimer does not match authenticated receiver wallet." };
+    }
+
+    const calledContractId = tx.contract_call?.contract_id;
+    if (!samePrincipal(calledContractId, REMITTANCE_CONTRACT_ID)) {
+      return { ok: false, reason: "Claim transaction did not call the remittance contract." };
+    }
+
+    if (tx.contract_call?.function_name !== "claim-remittance") {
+      return { ok: false, reason: "Transaction did not call claim-remittance." };
+    }
+
+    const transferIdArg = tx.contract_call?.function_args?.[0];
+    const claimSecretArg = tx.contract_call?.function_args?.[1];
+
+    const transferIdFromTx = parseUintRepr(transferIdArg?.repr);
+    if (transferIdFromTx === undefined || transferIdFromTx !== input.expectedOnChainTransferId) {
+      return { ok: false, reason: "Claim transaction transfer-id does not match transfer record." };
+    }
+
+    const claimSecretFromTx = normalizeHexBuffer(claimSecretArg?.repr || claimSecretArg?.hex);
+    const expectedClaimSecret = normalizeHexBuffer(input.expectedClaimSecretHex);
+
+    if (!claimSecretFromTx || claimSecretFromTx !== expectedClaimSecret) {
+      return { ok: false, reason: "Claim transaction claim secret does not match provided claim secret." };
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Unable to fetch or verify claim transaction from Stacks API." };
   }
 }
