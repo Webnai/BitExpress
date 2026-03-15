@@ -1,5 +1,6 @@
-import { createHash, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 
+import { verifyMessageSignatureRsv } from "@stacks/encryption";
 import { getAddressFromPublicKey, verifySignature, TransactionVersion } from "@stacks/transactions";
 
 import { db, AuthChallenge } from "../db";
@@ -78,14 +79,22 @@ export async function verifyAuthChallengeAndMintToken(input: {
     throw new Error("Public key does not match wallet address.");
   }
 
-  const messageHash = createHash("sha256").update(challenge.message).digest("hex");
-  const signatureValid = verifySignature(
-    normalizeHex(input.signature),
-    messageHash,
-    normalizeHex(input.publicKey)
-  );
+  const normalizedSignature = normalizeHex(input.signature);
+  const normalizedPublicKey = normalizeHex(input.publicKey);
 
-  if (!signatureValid) {
+  // Primary path: verify using Stacks message semantics used by stx_signMessage.
+  const signatureValid = verifyMessageSignatureRsv({
+    signature: normalizedSignature,
+    message: challenge.message,
+    publicKey: normalizedPublicKey,
+  });
+
+  // Backward-compatible fallback for previously signed clients.
+  const signatureValidLegacy = !signatureValid
+    ? verifySignature(normalizedSignature, challenge.message, normalizedPublicKey)
+    : true;
+
+  if (!signatureValidLegacy) {
     throw new Error("Invalid wallet signature.");
   }
 

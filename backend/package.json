@@ -10,6 +10,7 @@
     "test": "jest --testEnvironment=node"
   },
   "dependencies": {
+    "@stacks/encryption": "^6.17.0",
     "@stacks/network": "^6.13.0",
     "@stacks/transactions": "^6.13.0",
     "@types/supertest": "^7.2.0",
