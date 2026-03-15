@@ -85,9 +85,15 @@ function initialsFromName(value?: string) {
     .toUpperCase();
 }
 
+function isLikelyStacksAddress(value: string): boolean {
+  const normalized = value.trim().toUpperCase();
+  return /^S[PTMN][A-Z0-9]{20,60}$/.test(normalized);
+}
+
 export default function SendPage() {
   const { address } = useWallet();
-  const [country, setCountry] = useState("GHA");
+  const [sourceCountry, setSourceCountry] = useState("GHA");
+  const [destCountry, setDestCountry] = useState("NGA");
   const [phone, setPhone] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [receiverWallet, setReceiverWallet] = useState("");
@@ -175,8 +181,8 @@ export default function SendPage() {
     };
   }, [address]);
 
-  const selectedRate = rates[country];
-  const selectedCountryMeta = countryMeta[country];
+  const selectedRate = rates[destCountry];
+  const selectedCountryMeta = countryMeta[destCountry];
   const amountUsd = Number.parseFloat(amountUsdInput) || 0;
   const feeUsd = amountUsd * 0.01;
   const networkFeeUsd = 0;
@@ -185,7 +191,22 @@ export default function SendPage() {
   const localPerUsd = selectedRate ? selectedRate.rate / Math.max(selectedRate.btcUsdPrice, 1) : 0;
   const recipientGetsLocal = recipientGetsUsd * localPerUsd;
   const connectedBalanceUsdcx = usdcxBalance ? Number(usdcxBalance) / 1_000_000 : null;
-  const selectedFlagCountry = getFlagCountry(country);
+  const selectedFlagCountry = getFlagCountry(destCountry);
+  const receiverWalletNormalized = receiverWallet.trim();
+  const recipientNameNormalized = recipientName.trim();
+  const phoneNormalized = phone.trim();
+  const isAmountValid = Number.isFinite(amountUsd) && amountUsd >= 1 && amountUsd <= 10000;
+  const isRecipientWalletValid = isLikelyStacksAddress(receiverWalletNormalized);
+  const requiresPhone = method === "mobile_money";
+  const isPhoneValid = !requiresPhone || phoneNormalized.length >= 8;
+  const isRecipientNameValid = recipientNameNormalized.length > 1;
+  const canSubmitForm =
+    Boolean(address) &&
+    isAmountValid &&
+    isRecipientWalletValid &&
+    isPhoneValid &&
+    isRecipientNameValid &&
+    Boolean(stacksTxId.trim());
 
   const sendMaxLabel = useMemo(() => {
     if (connectedBalanceUsdcx === null) return null;
@@ -200,13 +221,23 @@ export default function SendPage() {
       return;
     }
 
-    if (!receiverWallet.trim()) {
-      toast.error("Recipient wallet is required.");
+    if (!isRecipientWalletValid) {
+      toast.error("Enter a valid recipient Stacks wallet address.");
       return;
     }
 
-    if (amountUsd < 1) {
-      toast.error("Enter a valid USD amount (minimum $1).");
+    if (!isAmountValid) {
+      toast.error("Enter an amount between $1 and $10,000.");
+      return;
+    }
+
+    if (!isRecipientNameValid) {
+      toast.error("Recipient name is required.");
+      return;
+    }
+
+    if (!isPhoneValid) {
+      toast.error("Recipient phone is required for mobile money payout.");
       return;
     }
 
@@ -218,12 +249,12 @@ export default function SendPage() {
     setIsSubmitting(true);
     try {
       const response = await apiSend({
-        receiverWallet: receiverWallet.trim(),
+        receiverWallet: receiverWalletNormalized,
         amountUsd,
-        sourceCountry: country,
-        destCountry: country,
-        recipientPhone: phone.trim() || undefined,
-        recipientName: recipientName.trim() || undefined,
+        sourceCountry,
+        destCountry,
+        recipientPhone: phoneNormalized || undefined,
+        recipientName: recipientNameNormalized || undefined,
         payoutMethod: method,
         stacksTxId: stacksTxId.trim() || undefined,
       });
@@ -255,7 +286,25 @@ export default function SendPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Recipient Information</p>
 
               <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Country</label>
+                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Sender Country</label>
+                <div className="flex items-center justify-between gap-2">
+                  <select
+                    value={sourceCountry}
+                    onChange={(e) => setSourceCountry(e.target.value)}
+                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                  >
+                    {COUNTRY_OPTIONS.map((entry) => (
+                      <option key={entry.code} value={entry.code}>
+                        {entry.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[#8b99b0]">▾</span>
+                </div>
+              </div>
+
+              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Recipient Country</label>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     {selectedFlagCountry ? (
@@ -263,8 +312,8 @@ export default function SendPage() {
                     ) : null}
                   </div>
                   <select
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
+                    value={destCountry}
+                    onChange={(e) => setDestCountry(e.target.value)}
                     className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
                   >
                     {COUNTRY_OPTIONS.map((entry) => (
@@ -285,9 +334,13 @@ export default function SendPage() {
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
                     placeholder="+233 24 123 4567"
+                    required={requiresPhone}
                   />
                   <span className="text-[#8b99b0]">ⓘ</span>
                 </div>
+                {requiresPhone ? (
+                  <p className="mt-1 text-[10px] text-[#7f8ea9]">Required for mobile money payout.</p>
+                ) : null}
               </div>
 
               <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
@@ -297,6 +350,7 @@ export default function SendPage() {
                   onChange={(e) => setRecipientName(e.target.value)}
                   className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
                   placeholder="Kwame Mensah"
+                  required
                 />
               </div>
 
@@ -309,6 +363,7 @@ export default function SendPage() {
                   placeholder="SP..."
                   required
                 />
+                <p className="mt-1 text-[10px] text-[#7f8ea9]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
               </div>
             </div>
 
@@ -385,7 +440,7 @@ export default function SendPage() {
                         onClick={() => {
                           setReceiverWallet(entry.wallet);
                           setRecipientName(entry.name ?? "");
-                          setCountry(entry.countryCode);
+                          setDestCountry(entry.countryCode);
                         }}
                         className="rounded-xl bg-[#f6f9fe] px-3 py-3 text-left hover:bg-[#edf3fd]"
                       >
@@ -470,7 +525,7 @@ export default function SendPage() {
               <button
                 type="submit"
                 className="w-full rounded-xl bg-[#ff7448] px-4 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
-                disabled={isSubmitting || !address}
+                disabled={isSubmitting || !canSubmitForm}
               >
                 {isSubmitting ? "Sending..." : "Send Money"}
               </button>
