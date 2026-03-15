@@ -32,13 +32,7 @@ export async function createAuthChallenge(walletAddress: string): Promise<AuthCh
   const challenge: AuthChallenge = {
     walletAddress,
     nonce,
-    message: [
-      "BitExpress Sign-In",
-      `Wallet: ${walletAddress}`,
-      `Nonce: ${nonce}`,
-      `Issued At: ${createdAt}`,
-      `Expires At: ${expiresAt}`,
-    ].join("\n"),
+    message: `BitExpress Sign-In | wallet=${walletAddress} | nonce=${nonce} | issuedAt=${createdAt} | expiresAt=${expiresAt}`,
     createdAt,
     createdAtMs,
     expiresAt,

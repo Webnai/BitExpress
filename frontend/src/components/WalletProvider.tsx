@@ -35,12 +35,18 @@ interface PersistedWalletState {
   walletName: WalletName;
 }
 
+interface WalletAddressEntry {
+  address: string;
+  symbol?: string;
+  publicKey?: string;
+}
+
 const STORAGE_KEY = "bitexpress.wallet";
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 
-function pickAddress(addresses: Array<{ address: string; symbol?: string }>): string | null {
-  return addresses.find((a) => a.symbol?.toUpperCase() === "STX")?.address ?? addresses[0]?.address ?? null;
+function pickAddressEntry(addresses: WalletAddressEntry[]): WalletAddressEntry | null {
+  return addresses.find((a) => a.symbol?.toUpperCase() === "STX") ?? addresses[0] ?? null;
 }
 
 export function shortAddress(value: string | null): string | null {
@@ -132,7 +138,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         enableLocalStorage: true,
       });
 
-      const connectedAddress = pickAddress(result.addresses);
+      const connectedEntry = pickAddressEntry(result.addresses);
+      const connectedAddress = connectedEntry?.address ?? null;
       if (!connectedAddress) {
         throw new Error("No address returned from wallet. Please try again.");
       }
@@ -151,10 +158,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       const signatureData = await stacksRequest("stx_signMessage", {
         message: challenge.message,
+        publicKey: connectedEntry?.publicKey,
       }).catch((error) => {
         console.error("[wallet.connect] wallet signing failed", {
           stage: "wallet.sign_message",
           walletAddress: connectedAddress,
+          hasPublicKey: Boolean(connectedEntry?.publicKey),
           message: error instanceof Error ? error.message : String(error),
           error,
         });
