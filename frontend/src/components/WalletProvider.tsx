@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { apiCreateAuthChallenge, apiVerifyWalletSignature } from "@/lib/api";
+import { getE2EWalletSession } from "@/lib/e2e";
 import { STACKS_NETWORK } from "@/lib/stacks";
 import {
   getFirebaseIdToken,
@@ -70,6 +71,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function hydrateSession() {
+      const e2eSession = getE2EWalletSession();
+      if (e2eSession) {
+        setAddress(e2eSession.address);
+        setWalletName(e2eSession.walletName);
+        setAuthenticated(true);
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            address: e2eSession.address,
+            walletName: e2eSession.walletName,
+          } satisfies PersistedWalletState),
+        );
+        setIsHydrated(true);
+        return;
+      }
+
       let candidateAddress: string | null = null;
       let candidateWalletName: WalletName | null = null;
 
@@ -130,6 +147,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
+      const e2eSession = getE2EWalletSession();
+      if (e2eSession) {
+        setAddress(e2eSession.address);
+        setWalletName(e2eSession.walletName);
+        setAuthenticated(true);
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            address: e2eSession.address,
+            walletName: e2eSession.walletName,
+          } satisfies PersistedWalletState),
+        );
+        return;
+      }
+
       const { connect, getSelectedProviderId, request } = await loadStacksConnect();
       const result = await connect({
         network: STACKS_NETWORK,
@@ -216,6 +248,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnectWallet = useCallback(async () => {
+    const e2eSession = getE2EWalletSession();
+    if (e2eSession) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      setAddress(null);
+      setWalletName(null);
+      setAuthenticated(false);
+      return;
+    }
+
     const { disconnect } = await loadStacksConnect();
     disconnect();
     window.localStorage.removeItem(STORAGE_KEY);

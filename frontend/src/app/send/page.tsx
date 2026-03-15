@@ -400,11 +400,11 @@ export default function SendPage() {
         setPendingClaimSecret(claimSecretHex);
         setSubmissionKey(idempotencyKey);
         toast.success("On-chain escrow transaction broadcast successfully.");
-
-        logClientInfo("send.tx_confirmation_wait.started", { txid });
-        await waitForStacksTxSuccess(txid);
-        logClientInfo("send.tx_confirmation_wait.succeeded", { txid });
       }
+
+      logClientInfo("send.tx_confirmation_wait.started", { txid });
+      await waitForStacksTxSuccess(txid);
+      logClientInfo("send.tx_confirmation_wait.succeeded", { txid });
 
       const backendResponse = await finalizeBackendTransfer(txid, idempotencyKey);
       setSubmissionKey(null);
@@ -417,8 +417,26 @@ export default function SendPage() {
 
       toast.success("Transfer created successfully.");
     } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+
+      // Clear cached tx state when the on-chain tx is terminally failed, so next submit creates a new tx.
+      if (
+        message.includes("failed on-chain") ||
+        message.includes("abort_by_response") ||
+        message.includes("abort_by_post_condition") ||
+        message.includes("Transaction failed on-chain")
+      ) {
+        setPendingStacksTxId(null);
+        setPendingClaimSecret(null);
+        setSubmissionKey(null);
+        logClientInfo("send.pending_tx_cleared", {
+          reason: "terminal_on_chain_failure",
+          message,
+        });
+      }
+
       logClientError("send.submit.failed", {
-        message: error instanceof Error ? error.message : "unknown",
+        message,
         pendingStacksTxId,
       });
       toast.error(error instanceof Error ? error.message : "Failed to send transfer.");

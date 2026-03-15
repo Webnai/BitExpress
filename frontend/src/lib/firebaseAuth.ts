@@ -8,6 +8,7 @@ import {
   signOut,
   updateProfile,
 } from "@firebase/auth";
+import { getE2EWalletSession } from "@/lib/e2e";
 
 let appInstance: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
@@ -53,6 +54,10 @@ export async function signInWithFirebaseCustomToken(
   customToken: string,
   walletAddress: string,
 ): Promise<void> {
+  if (getE2EWalletSession()) {
+    return;
+  }
+
   const auth = await getFirebaseAuth();
   if (!auth) {
     throw new Error("Firebase is not configured on the frontend.");
@@ -66,18 +71,32 @@ export async function signInWithFirebaseCustomToken(
 }
 
 export async function getFirebaseIdToken(forceRefresh = false): Promise<string | null> {
+  const e2eSession = getE2EWalletSession();
+  if (e2eSession) {
+    return e2eSession.authToken;
+  }
+
   const auth = await getFirebaseAuth();
   if (!auth?.currentUser) return null;
   return auth.currentUser.getIdToken(forceRefresh);
 }
 
 export async function getFirebaseSessionWalletAddress(): Promise<string | null> {
+  const e2eSession = getE2EWalletSession();
+  if (e2eSession) {
+    return e2eSession.address;
+  }
+
   const auth = await getFirebaseAuth();
   if (!auth?.currentUser) return null;
   return auth.currentUser.displayName || null;
 }
 
 export async function signOutFirebaseSession(): Promise<void> {
+  if (getE2EWalletSession()) {
+    return;
+  }
+
   const auth = await getFirebaseAuth();
   if (!auth || !auth.currentUser) return;
   await signOut(auth);

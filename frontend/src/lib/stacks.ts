@@ -1,3 +1,4 @@
+import { getE2EMockTxId } from "@/lib/e2e";
 import { logClientError, logClientInfo } from "@/lib/debug";
 
 export const STACKS_NETWORK: "mainnet" | "testnet" =
@@ -34,6 +35,15 @@ export async function createSendRemittanceTx(input: {
   destCountry: string;
   claimSecretHex: string;
 }): Promise<{ txid: string }> {
+  const mockTxId = getE2EMockTxId("send");
+  if (mockTxId) {
+    logClientInfo("stacks.send.mock_response", {
+      contract: CONTRACT_ID,
+      txid: mockTxId,
+    });
+    return { txid: mockTxId };
+  }
+
   const [{ request }, { Cl }] = await Promise.all([
     import("@stacks/connect"),
     import("@stacks/transactions"),
@@ -93,6 +103,15 @@ export async function createClaimRemittanceTx(input: {
   transferId: number;
   claimSecretHex: string;
 }): Promise<{ txid: string }> {
+  const mockTxId = getE2EMockTxId("claim");
+  if (mockTxId) {
+    logClientInfo("stacks.claim.mock_response", {
+      contract: CONTRACT_ID,
+      txid: mockTxId,
+    });
+    return { txid: mockTxId };
+  }
+
   const [{ request }, { Cl }] = await Promise.all([
     import("@stacks/connect"),
     import("@stacks/transactions"),
@@ -138,6 +157,15 @@ export async function createClaimRemittanceTx(input: {
 export async function createRefundRemittanceTx(input: {
   transferId: number;
 }): Promise<{ txid: string }> {
+  const mockTxId = getE2EMockTxId("refund");
+  if (mockTxId) {
+    logClientInfo("stacks.refund.mock_response", {
+      contract: CONTRACT_ID,
+      txid: mockTxId,
+    });
+    return { txid: mockTxId };
+  }
+
   const [{ request }, { Cl }] = await Promise.all([
     import("@stacks/connect"),
     import("@stacks/transactions"),
@@ -197,7 +225,17 @@ export async function waitForStacksTxSuccess(
   const timeoutMs = options.timeoutMs ?? 120_000;
   const pollIntervalMs = options.pollIntervalMs ?? 5_000;
   const normalizedTxid = txid.replace(/^0x/, "");
+  const mockTxIds = [getE2EMockTxId("send"), getE2EMockTxId("claim"), getE2EMockTxId("refund")]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.replace(/^0x/, ""));
   const deadline = Date.now() + timeoutMs;
+
+  if (mockTxIds.includes(normalizedTxid)) {
+    logClientInfo("stacks.tx.wait_mock_succeeded", {
+      txid: normalizedTxid,
+    });
+    return;
+  }
 
   logClientInfo("stacks.tx.wait_started", {
     txid: normalizedTxid,
