@@ -125,19 +125,19 @@ npm run dev
 
 ### Example: Send Transfer
 
+> **Note:** All mutating endpoints require an `Authorization: Bearer <token>` header (obtained from wallet auth) and an `Idempotency-Key` UUID header. The `/api/send` example below is illustrative — use the frontend for a working demo.
+
 ```bash
-curl -X POST http://localhost:4000/api/send \
+# 1. Get an auth challenge
+curl -X POST http://localhost:4000/api/auth/challenge \
   -H "Content-Type: application/json" \
-  -d '{
-    "senderWallet": "SP1ABC...SENDER",
-    "receiverWallet": "SP2DEF...RECEIVER",
-    "amountUsd": 20,
-    "sourceCountry": "GHA",
-    "destCountry": "NGA",
-    "recipientPhone": "+2348012345678",
-    "recipientName": "John Doe",
-    "payoutMethod": "mobile_money"
-  }'
+  -d '{"walletAddress":"ST..."}'
+
+# 2. After signing, exchange the signature for a Firebase token
+# (see /api/auth/verify — returns customToken for Firebase sign-in)
+
+# 3. Exchange rates (unauthenticated)
+curl http://localhost:4000/api/exchange-rate
 ```
 
 ---
@@ -159,7 +159,44 @@ The `contracts/remittance.clar` contract implements:
 
 ---
 
-## 🧪 Running Tests
+## 🎬 Demo Script (End-to-End)
+
+Follow these steps to run a complete send→claim flow:
+
+### Prerequisites
+- Two Stacks wallets loaded with testnet USDCx (Leather or Xverse)
+- Both backend and frontend running locally
+
+### Step 1 — Send (Sender wallet)
+1. Open `http://localhost:3000/send`
+2. Connect **Sender** wallet
+3. Fill in: Recipient Country → Nigeria, Recipient Name, Recipient Wallet (second wallet address)
+4. Set Amount (e.g. $20), select Crypto Wallet payout method
+5. Click **Send Money** → wallet popup opens → confirm the `send-remittance` contract call
+6. After broadcast: **copy the Claim Secret** shown in the sidebar (copy button) and share it securely with the receiver
+7. Also note the **Transfer ID** shown in the result
+
+### Step 2 — Claim (Receiver wallet)
+1. Open `http://localhost:3000/receive` (or follow link from sender)
+2. Connect **Receiver** wallet
+3. Enter the **Transfer ID** and click Load Transfer
+4. Paste the **Claim Secret** shared by the sender
+5. Click **Claim Funds** → wallet popup opens → confirm the `claim-remittance` contract call
+6. Once the tx confirms, the backend processes the payout simulation
+7. Explorer links are shown for both the send and claim transactions
+
+### Step 3 — Track
+1. Open `http://localhost:3000/track`
+2. Enter the Transfer ID → see status "Claimed" with explorer links for send, claim, and (if applicable) refund transactions
+
+### Refund (optional, after 24h timeout)
+1. On `http://localhost:3000/dashboard` with the sender wallet connected
+2. Pending transfers older than 24h show a **Refund** button
+3. Click Refund → confirm `refund-remittance` contract call → USDCx returned to sender
+
+---
+
+
 
 ```bash
 cd backend

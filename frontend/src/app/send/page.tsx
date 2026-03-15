@@ -17,6 +17,7 @@ import {
   getStacksTxExplorerUrl,
   usdToUsdcxBaseUnits,
 } from "@/lib/stacks";
+import { Copy, Check } from "lucide-react";
 
 const COUNTRY_OPTIONS = [
   { code: "GHA", name: "Ghana" },
@@ -108,6 +109,7 @@ export default function SendPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingStacksTxId, setPendingStacksTxId] = useState<string | null>(null);
   const [pendingClaimSecret, setPendingClaimSecret] = useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [rates, setRates] = useState<ExchangeRateMap>({});
   const [countryMeta, setCountryMeta] = useState<CountryMetaMap>({});
@@ -600,10 +602,28 @@ export default function SendPage() {
                 </a>
                 {pendingClaimSecret ? (
                   <>
-                    <p className="mt-3 font-semibold text-[#132a52]">Claim secret</p>
-                    <p className="mt-1 break-all font-mono text-[11px]">{pendingClaimSecret}</p>
-                    <p className="mt-1 text-[10px] text-[#7f8ea9]">
-                      Save this secret. It is the 32-byte preimage used in the remittance contract call.
+                    <p className="mt-3 font-semibold text-[#132a52]">Claim Secret</p>
+                    <div className="mt-1 flex items-start gap-2">
+                      <p className="break-all font-mono text-[11px] flex-1">{pendingClaimSecret}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(pendingClaimSecret);
+                          setCopiedSecret(true);
+                          setTimeout(() => setCopiedSecret(false), 2000);
+                        }}
+                        className="shrink-0 rounded p-1 hover:bg-[#e8eef8] transition-colors"
+                        title="Copy claim secret"
+                      >
+                        {copiedSecret ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 text-[#8b99b0]" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-[#d97706] font-medium">
+                      ⚠ Share this secret with the receiver — they need it to claim on-chain.
                     </p>
                   </>
                 ) : null}
@@ -627,7 +647,7 @@ export default function SendPage() {
       <footer className="bg-[#0f2b57] px-4 py-12 text-white">
         <div className="mx-auto grid max-w-[1180px] gap-8 text-sm md:grid-cols-4">
           <div>
-            <p className="mb-3 text-2xl font-bold">₿ AfriSend</p>
+            <p className="mb-3 text-2xl font-bold">₿ BitExpress</p>
             <p className="text-white/80">Send money across Africa instantly with Bitcoin-powered remittance.</p>
           </div>
           <div>

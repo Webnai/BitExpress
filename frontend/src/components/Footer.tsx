@@ -82,7 +82,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-[#1e3a5f]">
         <div className="mx-auto max-w-[1180px] px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-          <span>© {new Date().getFullYear()} AfriSend. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} BitExpress. All rights reserved.</span>
           <div className="flex items-center gap-5">
             <Link href="#" className="hover:text-white transition-colors">Terms</Link>
             <Link href="#" className="hover:text-white transition-colors">Privacy</Link>

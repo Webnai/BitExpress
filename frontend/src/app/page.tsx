@@ -30,9 +30,9 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { step: "1", title: "Add Money", desc: "Fund your account via bank transfer, card, or mobile money." },
-  { step: "2", title: "Convert to Bitcoin", desc: "Your funds are converted for secure, low-cost transfer." },
-  { step: "3", title: "Receiver Gets Local Currency", desc: "Recipient cashes out through local mobile money or bank rails." },
+  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather or Xverse) and load it with USDCx tokens." },
+  { step: "2", title: "Send via Smart Contract", desc: "Enter recipient details and confirm the escrow transaction directly from your wallet." },
+  { step: "3", title: "Receiver Claims & Cashes Out", desc: "The receiver enters the claim secret, releases funds on-chain, and withdraws to mobile money or a bank." },
 ];
 
 const COUNTRIES = [
@@ -181,7 +181,7 @@ export default function LandingPage() {
           <p className="text-white/90 text-lg mb-7">Try the end-to-end prototype and track every transfer on-chain.</p>
           <Link href="/send">
             <button className="landing-cta-button px-8 py-3 rounded-xl font-bold">
-              Create Free Account
+              Connect Wallet &amp; Send
             </button>
           </Link>
           <p className="text-xs text-white/80 mt-3">No credit card required</p>

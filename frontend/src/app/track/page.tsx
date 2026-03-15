@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiGetTransaction } from "@/lib/api";
+import { getStacksTxExplorerUrl } from "@/lib/stacks";
 
 interface TrackedTransaction {
   id: string;
@@ -22,8 +23,12 @@ interface TrackedTransaction {
   recipientPhone?: string;
   payoutMethod?: string;
   stacksTxId?: string;
+  onChainTransferId?: number;
+  claimStacksTxId?: string;
+  refundStacksTxId?: string;
   createdAt: string;
   claimedAt?: string;
+  refundedAt?: string;
 }
 
 function StatusIcon({ status }: { status: string }) {
@@ -176,15 +181,21 @@ export default function TrackPage() {
                   value={new Date(transaction.claimedAt).toLocaleString("en-GB")}
                 />
               )}
+              {transaction.refundedAt && (
+                <Row
+                  label="Refunded At"
+                  value={new Date(transaction.refundedAt).toLocaleString("en-GB")}
+                />
+              )}
             </div>
 
             <div className="h-px bg-[#f0f4fb]" />
 
             {/* Actions */}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2">
               {transaction.status === "pending" && (
                 <Button
-                  className="flex-1"
+                  className="w-full"
                   onClick={() => router.push(`/receive?id=${transaction.id}`)}
                 >
                   Claim Funds
@@ -192,14 +203,34 @@ export default function TrackPage() {
                 </Button>
               )}
               {transaction.stacksTxId && (
-                <button
-                  className="flex-1 border border-[#ff7448] text-[#ff7448] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#fff8f6] transition-colors"
-                  onClick={() =>
-                    window.open(`https://explorer.stacks.co/txid/${transaction.stacksTxId}`, "_blank")
-                  }
+                <a
+                  href={getStacksTxExplorerUrl(transaction.stacksTxId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full text-center border border-[#ff7448] text-[#ff7448] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#fff8f6] transition-colors"
                 >
-                  View on Explorer
-                </button>
+                  Send Tx on Explorer ↗
+                </a>
+              )}
+              {transaction.claimStacksTxId && (
+                <a
+                  href={getStacksTxExplorerUrl(transaction.claimStacksTxId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full text-center border border-[#22c55e] text-[#16a34a] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#f0fdf4] transition-colors"
+                >
+                  Claim Tx on Explorer ↗
+                </a>
+              )}
+              {transaction.refundStacksTxId && (
+                <a
+                  href={getStacksTxExplorerUrl(transaction.refundStacksTxId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full text-center border border-[#94a3b8] text-[#64748b] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#f8fafc] transition-colors"
+                >
+                  Refund Tx on Explorer ↗
+                </a>
               )}
             </div>
           </div>
