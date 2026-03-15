@@ -104,9 +104,9 @@ export async function processPayout(
       return {
         success: true,
         reference: `CW-${Date.now()}`,
-        message: `sBTC sent directly to crypto wallet`,
+        message: `USDCx sent directly to crypto wallet`,
         localAmount,
-        localCurrency: "sBTC",
+        localCurrency: "USDCx",
         estimatedDelivery: new Date(Date.now() + 60 * 1000).toISOString(), // 1 minute
       };
 

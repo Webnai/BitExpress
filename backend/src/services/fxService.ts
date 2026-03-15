@@ -215,7 +215,11 @@ export function microStxToUsd(microStx: number): number {
   return (microStx / 1_000_000) * STX_USD_PRICE;
 }
 
-export function usdToMicroStx(usd: number): number {
-  const STX_USD_PRICE = 2.0;
-  return Math.floor((usd / STX_USD_PRICE) * 1_000_000);
+export function usdToUsdcxBaseUnits(usd: number): number {
+  // USDCx has 6 decimals and is 1:1 with USD.
+  return Math.floor(usd * 1_000_000);
+}
+
+export function usdcxBaseUnitsToUsd(units: number): number {
+  return units / 1_000_000;
 }

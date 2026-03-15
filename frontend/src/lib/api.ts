@@ -4,6 +4,10 @@ import { API_BASE_URL } from "@/types";
 const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
 const STACKS_TESTNET_API_BASE_URL =
   process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
+const STACKS_CONTRACT_ADDRESS =
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "ST000000000000000000002AMW42H";
+const USDCX_ASSET_IDENTIFIER =
+  process.env.NEXT_PUBLIC_USDCX_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.usdcx::usdcx-token`;
 
 function makeIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -218,6 +222,33 @@ export async function apiGetWalletBalance(address: string) {
       total_received: string;
     };
   }>(res);
+}
+
+export async function apiGetUsdcxBalance(address: string) {
+  const isTestnet = address.startsWith("ST") || address.startsWith("SN");
+  const baseUrl = isTestnet ? STACKS_TESTNET_API_BASE_URL : STACKS_MAINNET_API_BASE_URL;
+  const res = await fetch(`${baseUrl}/extended/v1/address/${address}/balances`, {
+    cache: "no-store",
+  });
+
+  const data = await parseJsonResponse<{
+    fungible_tokens?: Record<
+      string,
+      {
+        balance?: string;
+        total_sent?: string;
+        total_received?: string;
+      }
+    >;
+  }>(res);
+
+  const token = data.fungible_tokens?.[USDCX_ASSET_IDENTIFIER];
+  return {
+    assetIdentifier: USDCX_ASSET_IDENTIFIER,
+    balance: token?.balance || "0",
+    totalSent: token?.total_sent || "0",
+    totalReceived: token?.total_received || "0",
+  };
 }
 
 export async function apiGetExchangeRates() {

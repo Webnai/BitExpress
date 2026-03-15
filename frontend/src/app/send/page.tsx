@@ -7,7 +7,7 @@ import CountryFlag from "@/components/CountryFlag";
 import { useWallet } from "@/components/WalletProvider";
 import {
   apiGetExchangeRates,
-  apiGetWalletBalance,
+  apiGetUsdcxBalance,
   apiGetWalletHistory,
   apiSend,
 } from "@/lib/api";
@@ -91,13 +91,13 @@ export default function SendPage() {
   const [phone, setPhone] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [receiverWallet, setReceiverWallet] = useState("");
-  const [amountBtc, setAmountBtc] = useState("0.01");
+  const [amountUsdInput, setAmountUsdInput] = useState("20.00");
   const [method, setMethod] = useState<PayoutMethod>("crypto_wallet");
   const [stacksTxId, setStacksTxId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rates, setRates] = useState<ExchangeRateMap>({});
   const [countryMeta, setCountryMeta] = useState<CountryMetaMap>({});
-  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [usdcxBalance, setUsdcxBalance] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<WalletHistoryRecipient[]>([]);
   const [transferResult, setTransferResult] = useState<{
     id: string;
@@ -136,20 +136,20 @@ export default function SendPage() {
 
     async function loadWalletData() {
       if (!address) {
-        setWalletBalance(null);
+        setUsdcxBalance(null);
         setRecentRecipients([]);
         return;
       }
 
       const [balanceResult, historyResult] = await Promise.allSettled([
-        apiGetWalletBalance(address),
+        apiGetUsdcxBalance(address),
         apiGetWalletHistory(address),
       ]);
 
       if (cancelled) return;
 
       if (balanceResult.status === "fulfilled") {
-        setWalletBalance(balanceResult.value.stx.balance);
+        setUsdcxBalance(balanceResult.value.balance);
       }
 
       if (historyResult.status === "fulfilled") {
@@ -177,21 +177,20 @@ export default function SendPage() {
 
   const selectedRate = rates[country];
   const selectedCountryMeta = countryMeta[country];
-  const parsedAmountBtc = Number.parseFloat(amountBtc) || 0;
-  const btcUsdPrice = selectedRate?.btcUsdPrice ?? 0;
-  const amountUsd = parsedAmountBtc * btcUsdPrice;
-  const feeBtc = parsedAmountBtc * 0.01;
-  const networkFee = 0.00005;
-  const total = parsedAmountBtc + feeBtc + networkFee;
-  const recipientGetsBtc = Math.max(parsedAmountBtc - feeBtc, 0);
-  const recipientGetsLocal = recipientGetsBtc * (selectedRate?.rate ?? 0);
-  const connectedBalanceStx = walletBalance ? Number(walletBalance) / 1_000_000 : null;
+  const amountUsd = Number.parseFloat(amountUsdInput) || 0;
+  const feeUsd = amountUsd * 0.01;
+  const networkFeeUsd = 0;
+  const totalUsd = amountUsd + feeUsd + networkFeeUsd;
+  const recipientGetsUsd = Math.max(amountUsd - feeUsd, 0);
+  const localPerUsd = selectedRate ? selectedRate.rate / Math.max(selectedRate.btcUsdPrice, 1) : 0;
+  const recipientGetsLocal = recipientGetsUsd * localPerUsd;
+  const connectedBalanceUsdcx = usdcxBalance ? Number(usdcxBalance) / 1_000_000 : null;
   const selectedFlagCountry = getFlagCountry(country);
 
   const sendMaxLabel = useMemo(() => {
-    if (connectedBalanceStx === null) return null;
-    return `${connectedBalanceStx.toLocaleString(undefined, { maximumFractionDigits: 4 })} STX connected`;
-  }, [connectedBalanceStx]);
+    if (connectedBalanceUsdcx === null) return null;
+    return `${connectedBalanceUsdcx.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDCx connected`;
+  }, [connectedBalanceUsdcx]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -206,8 +205,13 @@ export default function SendPage() {
       return;
     }
 
-    if (!selectedRate || amountUsd < 1) {
-      toast.error("Enter a valid BTC amount after rates load.");
+    if (amountUsd < 1) {
+      toast.error("Enter a valid USD amount (minimum $1).");
+      return;
+    }
+
+    if (!stacksTxId.trim()) {
+      toast.error("A valid Stacks contract transaction ID is required.");
       return;
     }
 
@@ -314,14 +318,14 @@ export default function SendPage() {
               <div className="mt-3 rounded-xl border border-[#dbe4f0] bg-[#fbfcff] px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <input
-                    value={amountBtc}
-                    onChange={(e) => setAmountBtc(e.target.value)}
+                    value={amountUsdInput}
+                    onChange={(e) => setAmountUsdInput(e.target.value)}
                     className="w-36 bg-transparent text-4xl font-bold text-[#132a52] outline-none"
                     inputMode="decimal"
                   />
                   <div className="h-fit rounded-full bg-[#eef2f8] p-1 text-[10px] font-semibold text-[#5f6f88]">
-                    <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">BTC</span>
-                    <span className="px-3 py-1">sBTC</span>
+                    <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">USD</span>
+                    <span className="px-3 py-1">USDCx</span>
                   </div>
                 </div>
               </div>
@@ -363,7 +367,8 @@ export default function SendPage() {
                 value={stacksTxId}
                 onChange={(e) => setStacksTxId(e.target.value)}
                 className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
-                placeholder="0x... (optional)"
+                placeholder="0x..."
+                required
               />
             </div>
 
@@ -418,7 +423,9 @@ export default function SendPage() {
               <p className="text-xs text-[#7f8ea9]">Current Rate</p>
               <p className="mt-1 text-3xl font-bold text-[#132a52]">
                 {selectedRate && selectedCountryMeta
-                  ? `1 BTC = ${selectedCountryMeta.currencySymbol}${Math.round(selectedRate.rate).toLocaleString()}`
+                  ? `1 USD = ${selectedCountryMeta.currencySymbol}${localPerUsd.toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}`
                   : "Loading rates..."}
               </p>
               <p className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">
@@ -429,26 +436,26 @@ export default function SendPage() {
             <div className="mt-6 space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">You send</span>
-                <span className="font-semibold text-[#42526b]">{parsedAmountBtc.toFixed(5)} BTC</span>
+                <span className="font-semibold text-[#42526b]">${amountUsd.toFixed(2)} / {amountUsd.toFixed(2)} USDCx</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">Recipient gets</span>
                 <span className="font-semibold text-[#42526b]">
-                  {recipientGetsBtc.toFixed(5)} BTC
+                  ${recipientGetsUsd.toFixed(2)} USDCx
                   {selectedCountryMeta ? ` / ${recipientGetsLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${selectedCountryMeta.currency}` : ""}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">Transaction fee (~1%)</span>
-                <span className="font-semibold text-[#42526b]">{feeBtc.toFixed(5)} BTC</span>
+                <span className="font-semibold text-[#42526b]">${feeUsd.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">Network fee</span>
-                <span className="font-semibold text-[#42526b]">{networkFee.toFixed(5)} BTC</span>
+                <span className="font-semibold text-[#42526b]">${networkFeeUsd.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3">
                 <span className="font-semibold text-[#132a52]">Total cost</span>
-                <span className="font-bold text-[#132a52]">{total.toFixed(5)} BTC</span>
+                <span className="font-bold text-[#132a52]">${totalUsd.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#7f8ea9]">Backend USD amount</span>

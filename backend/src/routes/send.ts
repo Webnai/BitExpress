@@ -8,7 +8,7 @@ import {
   PLATFORM_FEE_BASIS_POINTS,
   SUPPORTED_COUNTRIES,
 } from "../config";
-import { usdToMicroStx } from "../services/fxService";
+import { usdToUsdcxBaseUnits } from "../services/fxService";
 import { sendNotification } from "../services/notificationService";
 import {
   getIdempotencyKey,
@@ -107,7 +107,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const fee = (amount * PLATFORM_FEE_BASIS_POINTS) / BASIS_POINTS_DENOMINATOR;
     const netAmount = amount - fee;
-    const microStxAmount = usdToMicroStx(amount);
+    const usdcxAmount = usdToUsdcxBaseUnits(amount);
 
     if (process.env.NODE_ENV !== "test") {
       if (!stacksTxId) {
@@ -120,7 +120,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       const verification = await verifySendRemittanceTx({
         txId: stacksTxId,
         senderWallet,
-        expectedAmount: microStxAmount,
+        expectedAmount: usdcxAmount,
       });
 
       if (!verification.ok) {
@@ -138,11 +138,11 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       id: transferId,
       sender: senderWallet,
       receiver: receiverWallet,
-      amount: microStxAmount,
+      amount: usdcxAmount,
       amountUsd: amount,
       fee,
       netAmount,
-      currency: "sBTC",
+      currency: "USDCx",
       sourceCountry,
       destCountry,
       recipientPhone,

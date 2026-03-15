@@ -18,7 +18,7 @@ export interface Transfer extends AuditFields {
   id: string;
   sender: string;
   receiver: string;
-  amount: number; // in microSTX / satoshis
+  amount: number; // in USDCx base units (6 decimals)
   amountUsd: number;
   fee: number;
   netAmount: number;
