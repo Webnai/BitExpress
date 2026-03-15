@@ -88,7 +88,7 @@ export default function LandingPage() {
 
       <section className="px-4 py-5 landing-trust-band">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-3 text-center text-sm font-medium text-[var(--color-text-muted)]">
-          <span>Trusted by 50,000+ users across Africa</span>
+          <span>Prototype live on Stacks testnet with wallet-based send, claim, and refund flows</span>
           <div className="flex items-center gap-2">
             <CountryFlag country="Ghana" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
             <CountryFlag country="Nigeria" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
@@ -178,7 +178,7 @@ export default function LandingPage() {
       <section className="px-4 py-18" style={{ background: "var(--color-primary)" }}>
         <div className="max-w-3xl mx-auto text-center text-white">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">Start Sending Money Today</h2>
-          <p className="text-white/90 text-lg mb-7">Join thousands saving on remittances.</p>
+          <p className="text-white/90 text-lg mb-7">Try the end-to-end prototype and track every transfer on-chain.</p>
           <Link href="/send">
             <button className="landing-cta-button px-8 py-3 rounded-xl font-bold">
               Create Free Account

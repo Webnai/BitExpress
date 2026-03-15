@@ -1,6 +1,6 @@
 # BitExpress ₿
 
-**Bitcoin Remittance Infrastructure for Africa** — A low-fee cross-border payment network built on Stacks + sBTC that enables people to send money across African countries with ~1% fees and near-instant settlement.
+**Bitcoin-secured remittance infrastructure for Africa** — A low-fee cross-border payment network built on Stacks that enables people to send value across African corridors with ~1% fees and near-instant settlement.
 
 > Compare: Western Union / MoneyGram charge **7–10%**. BitExpress charges **~1%**.
 
@@ -24,9 +24,7 @@
 
 ```
 User A (Ghana)
-   │ send BTC
-   ▼
-BTC → sBTC bridge
+   │ send USDCx on Stacks
    │
    ▼
 Stacks Smart Contract (Clarity)
@@ -148,7 +146,7 @@ curl -X POST http://localhost:4000/api/send \
 
 The `contracts/remittance.clar` contract implements:
 
-- **`send-remittance`** — Lock sBTC in escrow with claim code
+- **`send-remittance`** — Lock USDCx in escrow with claim secret hash
 - **`claim-remittance`** — Receiver claims with secret, funds released
 - **`refund-remittance`** — Sender refunds after 24h timeout
 - **`get-transfer-status`** — Read transfer state
@@ -156,7 +154,7 @@ The `contracts/remittance.clar` contract implements:
 
 ### Fee Structure
 - Platform fee: **1%** (configurable via `FEE-BASIS-POINTS`)
-- Transfer limits: **0.001 BTC** minimum, **1 BTC** maximum
+- Transfer limits: **1 USDCx** minimum, **10,000 USDCx** maximum
 - Timeout: **144 blocks** (~24 hours)
 
 ---
@@ -166,7 +164,7 @@ The `contracts/remittance.clar` contract implements:
 ```bash
 cd backend
 npm test
-# 16 tests across health, exchange rates, send, claim, and transaction endpoints
+# API and verification tests across health, exchange rates, send, claim, refund, and transaction flows
 ```
 
 ---
@@ -200,7 +198,8 @@ npm test
 - [x] Mobile money simulation
 - [x] FX rate service
 - [x] SMS notification service
-- [ ] Live Stacks wallet integration (Leather/Xverse)
+- [x] Live Stacks wallet integration (Leather/Xverse)
+- [x] On-chain send/claim/refund verification in backend
 - [ ] Real mobile money API integration
 - [ ] Liquidity pools
 - [ ] SMS transfer (send to phone number)
@@ -208,4 +207,4 @@ npm test
 
 ---
 
-*Built on [Stacks](https://stacks.co) + [sBTC](https://docs.stacks.co/concepts/sbtc) — secured by Bitcoin*
+*Built on [Stacks](https://stacks.co) with Clarity smart contracts and USDCx settlement rails — secured by Bitcoin*
