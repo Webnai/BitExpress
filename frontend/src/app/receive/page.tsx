@@ -24,12 +24,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClaim, apiGetTransaction, apiGetWalletHistory, apiGetExchangeRates } from "@/lib/api";
+import {
+  createClaimRemittanceTx,
+  getStacksTxExplorerUrl,
+  normalizeClaimSecretHex,
+} from "@/lib/stacks";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LoadedTransaction {
   id: string;
   sender: string;
   receiver: string;
+  onChainTransferId?: number;
   amountUsd: number;
   fee: number;
   netAmount: number;
@@ -111,6 +117,7 @@ export default function ReceivePage() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
+  const [claimTxId, setClaimTxId] = useState<string | null>(null);
 
   // Fetch live BTC/USD price from backend exchange rate service
   useEffect(() => {
@@ -187,11 +194,32 @@ export default function ReceivePage() {
       return;
     }
     if (!transaction) return;
+
+    if (transaction.onChainTransferId === undefined) {
+      toast.error("Missing on-chain transfer id. Reload transfer details and try again.");
+      return;
+    }
+
+    const claimSecretInput = claimCode.trim();
+    if (!claimSecretInput) {
+      toast.error("Enter the 32-byte claim secret to unlock escrow.");
+      return;
+    }
+
     setIsClaiming(true);
     try {
+      const normalizedClaimSecret = normalizeClaimSecretHex(claimSecretInput);
+      const claimTx = await createClaimRemittanceTx({
+        transferId: transaction.onChainTransferId,
+        claimSecretHex: normalizedClaimSecret,
+      });
+
+      setClaimTxId(claimTx.txid);
+      toast.success("On-chain claim transaction broadcast.");
+
       const res = await apiClaim({
         transferId: transaction.id,
-        claimCode: claimCode.trim() || undefined,
+        claimCode: normalizedClaimSecret,
       });
       setClaimedAt(res.transfer.claimedAt ?? new Date().toISOString());
       setTransaction((prev) => (prev ? { ...prev, status: "claimed" } : prev));
@@ -574,6 +602,35 @@ export default function ReceivePage() {
                 </div>
               ) : (
                 <div className="space-y-2.5">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="claim-secret-input">Claim Secret (32-byte hex)</Label>
+                    <Input
+                      id="claim-secret-input"
+                      value={claimCode}
+                      onChange={(e) => setClaimCode(e.target.value)}
+                      placeholder="Paste the 64-char claim secret"
+                      className="font-mono text-xs"
+                    />
+                    <p className="text-[11px] text-[#8b99b0]">
+                      This secret is required to execute <span className="font-mono">claim-remittance</span> on-chain.
+                    </p>
+                  </div>
+
+                  {claimTxId ? (
+                    <div className="rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-2 text-xs text-[#42526b]">
+                      <p className="font-semibold text-[#132a52]">Latest Claim Tx</p>
+                      <p className="mt-1 break-all">{claimTxId}</p>
+                      <a
+                        href={getStacksTxExplorerUrl(claimTxId)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex text-[#ff7448] hover:underline"
+                      >
+                        View in explorer
+                      </a>
+                    </div>
+                  ) : null}
+
                   {!address && (
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       Connect your wallet to claim funds
@@ -590,8 +647,8 @@ export default function ReceivePage() {
                     className="w-full border border-[#ff7448] text-[#ff7448] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#fff8f6] transition-colors"
                     onClick={() => {
                       if (!transaction) return;
-                      const txId = transaction.stacksTxId ?? transaction.id;
-                      window.open(`https://explorer.stacks.co/txid/${txId}`, "_blank");
+                      const txId = claimTxId ?? transaction.stacksTxId ?? transaction.id;
+                      window.open(getStacksTxExplorerUrl(txId), "_blank");
                     }}
                     disabled={!transaction}
                   >

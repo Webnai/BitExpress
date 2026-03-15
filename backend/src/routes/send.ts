@@ -109,6 +109,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const netAmount = amount - fee;
     const usdcxAmount = usdToUsdcxBaseUnits(amount);
 
+    let onChainTransferId: number | undefined;
+
     if (process.env.NODE_ENV !== "test") {
       if (!stacksTxId) {
         res.status(400).json({
@@ -129,6 +131,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         });
         return;
       }
+
+      onChainTransferId = verification.onChainTransferId;
     }
 
     const transferId = uuidv4();
@@ -138,6 +142,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       id: transferId,
       sender: senderWallet,
       receiver: receiverWallet,
+      onChainTransferId,
       amount: usdcxAmount,
       amountUsd: amount,
       fee,
@@ -191,6 +196,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       transfer: {
         id: transfer.id,
         status: transfer.status,
+        onChainTransferId: transfer.onChainTransferId,
         amount: transfer.amountUsd,
         fee: transfer.fee,
         netAmount: transfer.netAmount,

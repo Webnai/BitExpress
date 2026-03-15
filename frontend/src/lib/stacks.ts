@@ -46,6 +46,40 @@ export async function createSendRemittanceTx(input: {
   return { txid: response.txid };
 }
 
+export function normalizeClaimSecretHex(claimSecret: string): string {
+  const sanitized = claimSecret.trim().toLowerCase().replace(/^0x/, "");
+  if (!/^[0-9a-f]{64}$/.test(sanitized)) {
+    throw new Error("Claim secret must be a 32-byte hex string.");
+  }
+  return sanitized;
+}
+
+export async function createClaimRemittanceTx(input: {
+  transferId: number;
+  claimSecretHex: string;
+}): Promise<{ txid: string }> {
+  const [{ request }, { Cl }] = await Promise.all([
+    import("@stacks/connect"),
+    import("@stacks/transactions"),
+  ]);
+
+  const response = (await request("stx_callContract", {
+    contract: CONTRACT_ID,
+    functionName: "claim-remittance",
+    functionArgs: [
+      Cl.uint(input.transferId),
+      Cl.bufferFromHex(input.claimSecretHex),
+    ],
+    network: STACKS_NETWORK,
+  })) as { txid?: string };
+
+  if (!response?.txid) {
+    throw new Error("Wallet did not return a transaction ID for claim-remittance.");
+  }
+
+  return { txid: response.txid };
+}
+
 export function getStacksTxExplorerUrl(txid: string): string {
   const normalizedTxid = txid.startsWith("0x") ? txid : `0x${txid}`;
   const baseUrl = STACKS_NETWORK === "mainnet"

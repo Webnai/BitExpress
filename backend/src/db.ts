@@ -18,6 +18,7 @@ export interface Transfer extends AuditFields {
   id: string;
   sender: string;
   receiver: string;
+  onChainTransferId?: number;
   amount: number; // in USDCx base units (6 decimals)
   amountUsd: number;
   fee: number;

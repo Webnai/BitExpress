@@ -29,6 +29,9 @@ interface StacksTxResponse {
   sender_address?: string;
   contract_call?: ContractCallInfo;
   events?: TxEvent[];
+  tx_result?: {
+    repr?: string;
+  };
 }
 
 export interface SendRemittanceTxVerificationInput {
@@ -40,6 +43,16 @@ export interface SendRemittanceTxVerificationInput {
 export interface SendRemittanceTxVerificationResult {
   ok: boolean;
   reason?: string;
+  onChainTransferId?: number;
+}
+
+function parseTransferIdFromTxResult(txResultRepr?: string): number | undefined {
+  if (!txResultRepr) return undefined;
+  const match = txResultRepr.match(/^\(ok u(\d+)\)$/);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return undefined;
+  return parsed;
 }
 
 const STACKS_API_BASE_URL =
@@ -122,7 +135,15 @@ export async function verifySendRemittanceTx(
       };
     }
 
-    return { ok: true };
+    const onChainTransferId = parseTransferIdFromTxResult(tx.tx_result?.repr);
+    if (onChainTransferId === undefined) {
+      return {
+        ok: false,
+        reason: "Unable to parse remittance transfer ID from transaction result.",
+      };
+    }
+
+    return { ok: true, onChainTransferId };
   } catch {
     return { ok: false, reason: "Unable to fetch or verify transaction from Stacks API." };
   }

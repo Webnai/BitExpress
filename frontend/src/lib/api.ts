@@ -104,6 +104,7 @@ export async function apiSend(payload: {
     transfer: {
       id: string;
       status: string;
+      onChainTransferId?: number;
       amount: number;
       fee: number;
       netAmount: number;
@@ -160,6 +161,7 @@ export async function apiGetTransaction(id: string) {
       status: string;
       sourceCountry: { code: string; name?: string; currency?: string };
       destCountry: { code: string; name?: string; currency?: string; mobileMoney?: string };
+      onChainTransferId?: number;
       recipientPhone?: string;
       recipientName?: string;
       payoutMethod?: string;
@@ -184,6 +186,7 @@ export async function apiGetWalletHistory(address: string) {
       countryName?: string;
       payoutMethod: string;
       status: string;
+      onChainTransferId?: number;
       stacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
@@ -201,6 +204,7 @@ export async function apiGetWalletHistory(address: string) {
       countryName?: string;
       payoutMethod: string;
       status: string;
+      onChainTransferId?: number;
       stacksTxId?: string;
       createdAt: string;
       claimedAt?: string;
