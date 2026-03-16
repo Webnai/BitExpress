@@ -422,6 +422,7 @@ export default function SendPage() {
       // Clear cached tx state when the on-chain tx is terminally failed, so next submit creates a new tx.
       if (
         message.includes("failed on-chain") ||
+        message.includes("On-chain transaction failed") ||
         message.includes("abort_by_response") ||
         message.includes("abort_by_post_condition") ||
         message.includes("Transaction failed on-chain")
@@ -446,18 +447,18 @@ export default function SendPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f6fb]">
+    <div className="min-h-screen bg-[var(--background)]">
       <div className="max-w-[1180px] mx-auto px-4 py-8 md:px-6">
         <form className="grid gap-5 xl:grid-cols-[2fr_1fr]" onSubmit={handleSubmit}>
-          <section className="rounded-2xl border border-[#e1e8f3] bg-white p-6 shadow-[0_6px_20px_rgba(15,23,42,0.05)] md:p-7">
-            <h1 className="text-4xl font-bold text-[#132a52]">Send Money</h1>
-            <p className="mt-2 text-sm text-[#7f8ea9]">Transfer funds securely across Africa</p>
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_6px_20px_rgba(0,0,0,0.3)] md:p-7">
+            <h1 className="text-4xl font-bold text-[var(--color-heading)]">Send Money</h1>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)]">Transfer funds securely across Africa</p>
 
             <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Recipient Information</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Recipient Information</p>
 
-              <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Sender Country</label>
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Sender Country</label>
                 <div className="flex items-center justify-between gap-2">
                   <select
                     value={sourceCountry}
@@ -497,32 +498,32 @@ export default function SendPage() {
                 </div>
               </div>
 
-              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Phone Number</label>
+              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Phone Number</label>
                 <div className="flex items-center justify-between gap-2">
                   <input
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                     placeholder="+233 24 123 4567"
                     required={requiresPhone}
                   />
-                  <span className="text-[#8b99b0]">ⓘ</span>
+                  <span className="text-[var(--color-text-muted)]">ⓘ</span>
                 </div>
                 {requiresPhone ? (
-                  <p className="mt-1 text-[10px] text-[#7f8ea9]">Required for mobile money payout.</p>
+                  <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Required for mobile money payout.</p>
                 ) : null}
               </div>
 
               {requiresMobileOperator ? (
-                <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                  <label className="mb-1 block text-[11px] text-[#7f8ea9]">Mobile Money Operator</label>
+                <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                  <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Mobile Money Operator</label>
                   {selectedMobileMoneyOperators.length ? (
                     <div className="flex items-center justify-between gap-2">
                       <select
                         value={recipientMobileProvider}
                         onChange={(e) => setRecipientMobileProvider(e.target.value)}
-                        className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                        className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                       >
                         {selectedMobileMoneyOperators.map((operator) => (
                           <option key={operator.code} value={operator.code}>
@@ -530,69 +531,69 @@ export default function SendPage() {
                           </option>
                         ))}
                       </select>
-                      <span className="text-[#8b99b0]">▾</span>
+                      <span className="text-[var(--color-text-muted)]">▾</span>
                     </div>
                   ) : (
-                    <p className="text-sm font-medium text-[#b45309]">
+                    <p className="text-sm font-medium text-[var(--color-danger-500)]">
                       Live mobile-money payout is not available for this country via Paystack or CinetPay.
                     </p>
                   )}
                   {selectedOperator ? (
-                    <p className="mt-1 text-[10px] text-[#7f8ea9]">
+                    <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
                       Routed through {selectedOperator.provider === "paystack" ? "Paystack" : "CinetPay"}.
                     </p>
                   ) : null}
                 </div>
               ) : null}
 
-              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Recipient Name</label>
+              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Name</label>
                 <input
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
-                  className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                  className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   placeholder="Kwame Mensah"
                   required
                 />
               </div>
 
-              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Recipient Wallet</label>
+              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Wallet</label>
                 <input
                   value={receiverWallet}
                   onChange={(e) => setReceiverWallet(e.target.value)}
-                  className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                  className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   placeholder="SP..."
                   required
                 />
-                <p className="mt-1 text-[10px] text-[#7f8ea9]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
+                <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
               </div>
             </div>
 
             <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">You Send</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">You Send</p>
 
-              <div className="mt-3 rounded-xl border border-[#dbe4f0] bg-[#fbfcff] px-4 py-4">
+              <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <input
                     value={amountUsdInput}
                     onChange={(e) => setAmountUsdInput(e.target.value)}
-                    className="w-36 bg-transparent text-4xl font-bold text-[#132a52] outline-none"
+                    className="w-36 bg-transparent text-4xl font-bold text-[var(--color-heading)] outline-none"
                     inputMode="decimal"
                   />
-                  <div className="h-fit rounded-full bg-[#eef2f8] p-1 text-[10px] font-semibold text-[#5f6f88]">
-                    <span className="rounded-full bg-[#ff7448] px-3 py-1 text-white">USD</span>
+                  <div className="h-fit rounded-full bg-[var(--color-border)] p-1 text-[10px] font-semibold text-[var(--color-text-muted)]">
+                    <span className="rounded-full bg-[var(--color-primary)] px-3 py-1 text-[#0f0f0f]">USD</span>
                     <span className="px-3 py-1">sBTC</span>
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] font-semibold text-[#ff7448]">
+              <p className="mt-2 text-[11px] font-semibold text-[var(--color-primary)]">
                 {sendMaxLabel ? `Connected balance: ${sendMaxLabel}` : "Connect wallet to load balance"}
               </p>
             </div>
 
             <div className="mt-7">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#6f7d95]">Payment Method</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Payment Method</p>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {PAY_METHODS.map((item) => {
                   const active = method === item.key;
@@ -603,40 +604,40 @@ export default function SendPage() {
                       onClick={() => setMethod(item.key)}
                       className={`rounded-xl border px-4 py-4 text-center transition-colors ${
                         active
-                          ? "border-[#ff7448] bg-[#fff6f2]"
-                          : "border-[#dfe6f2] bg-white hover:bg-[#fbfcff]"
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+                          : "border-[var(--color-border)] bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface)]"
                       }`}
                     >
                       <p className="mb-1 text-lg">{item.icon}</p>
-                      <p className={`text-sm font-semibold ${active ? "text-[#ff7448]" : "text-[#42526b]"}`}>
+                      <p className={`text-sm font-semibold ${active ? "text-[var(--color-primary)]" : "text-[var(--color-text)]"}`}>
                         {item.title}
                       </p>
-                      {active && <p className="mt-1 text-[10px] text-[#ff7448]">✓</p>}
+                      {active && <p className="mt-1 text-[10px] text-[var(--color-primary)]">✓</p>}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-              <label className="mb-1 block text-[11px] text-[#7f8ea9]">On-Chain Escrow</label>
-              <p className="text-sm font-medium text-[#42526b]">
+            <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+              <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">On-Chain Escrow</label>
+              <p className="text-sm font-medium text-[var(--color-text)]">
                 BitExpress will open your connected wallet and call the remittance contract automatically.
               </p>
-              <p className="mt-1 text-[10px] text-[#7f8ea9]">
+              <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
                 The backend finalizes the transfer after the wallet returns the broadcast transaction ID.
               </p>
             </div>
 
             {method === "mobile_money" && selectedCountryMeta ? (
-              <div className="mt-3 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3 text-xs text-[#42526b]">
-                <p className="font-semibold text-[#132a52]">Live Payout Rail</p>
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3 text-xs text-[var(--color-text)]">
+                <p className="font-semibold text-[var(--color-heading)]">Live Payout Rail</p>
                 {selectedCountryMeta.supportsMobileMoneyPayout ? (
                   <p className="mt-1">
                     {selectedCountryMeta.mobileMoneyProvider === "paystack" ? "Paystack" : "CinetPay"} will handle the mobile-money payout in {selectedCountryMeta.name}.
                   </p>
                 ) : (
-                  <p className="mt-1 text-[#b45309]">
+                  <p className="mt-1 text-[var(--color-danger-500)]">
                     This corridor cannot be paid out to mobile money with the providers currently integrated into the app.
                   </p>
                 )}
@@ -644,7 +645,7 @@ export default function SendPage() {
             ) : null}
 
             <div className="mt-7">
-              <h2 className="text-sm font-semibold text-[#132a52]">Recent Recipients</h2>
+              <h2 className="text-sm font-semibold text-[var(--color-heading)]">Recent Recipients</h2>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {recentRecipients.length ? (
                   recentRecipients.map((entry) => {
@@ -658,28 +659,28 @@ export default function SendPage() {
                           setRecipientName(entry.name ?? "");
                           setDestCountry(entry.countryCode);
                         }}
-                        className="rounded-xl bg-[#f6f9fe] px-3 py-3 text-left hover:bg-[#edf3fd]"
+                        className="rounded-xl bg-[var(--color-surface-muted)] px-3 py-3 text-left hover:bg-[var(--color-surface)]"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[#8aa4d3] to-[#4d78d0] text-[11px] font-bold text-white">
+                          <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[#0088cc] text-[11px] font-bold text-[#0f0f0f]">
                             {initialsFromName(entry.name)}
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-[#132a52]">{entry.name || shortWallet(entry.wallet)}</p>
-                            <div className="flex items-center gap-1 text-[11px] text-[#8b99b0]">
+                            <p className="text-xs font-semibold text-[var(--color-heading)]">{entry.name || shortWallet(entry.wallet)}</p>
+                            <div className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)]">
                               {flagCountry ? (
                                 <CountryFlag country={flagCountry} variant={1} size={14} className="h-3.5 w-3.5 rounded-sm object-cover" />
                               ) : null}
                               <span>{entry.countryName}</span>
                             </div>
-                            <p className="text-[11px] font-semibold text-[#ff7448]">{shortWallet(entry.wallet)}</p>
+                            <p className="text-[11px] font-semibold text-[var(--color-primary)]">{shortWallet(entry.wallet)}</p>
                           </div>
                         </div>
                       </button>
                     );
                   })
                 ) : (
-                  <div className="rounded-xl bg-[#f6f9fe] px-3 py-4 text-xs text-[#8b99b0] sm:col-span-2 lg:col-span-4">
+                  <div className="rounded-xl bg-[var(--color-surface-muted)] px-3 py-4 text-xs text-[var(--color-text-muted)] sm:col-span-2 lg:col-span-4">
                     No recent recipients from your wallet history yet.
                   </div>
                 )}
@@ -687,63 +688,63 @@ export default function SendPage() {
             </div>
           </section>
 
-          <aside className="h-fit rounded-2xl border border-[#e1e8f3] bg-white p-6 shadow-[0_6px_20px_rgba(15,23,42,0.05)]">
-            <h2 className="text-[1.8rem] font-bold text-[#132a52]">Transaction Summary</h2>
+          <aside className="h-fit rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_6px_20px_rgba(0,0,0,0.3)]">
+            <h2 className="text-[1.8rem] font-bold text-[var(--color-heading)]">Transaction Summary</h2>
 
-            <div className="mt-6 rounded-xl bg-[#f6f9fe] p-4">
-              <p className="text-xs text-[#7f8ea9]">Current Rate</p>
-              <p className="mt-1 text-3xl font-bold text-[#132a52]">
+            <div className="mt-6 rounded-xl bg-[var(--color-surface-muted)] p-4">
+              <p className="text-xs text-[var(--color-text-muted)]">Current Rate</p>
+              <p className="mt-1 text-3xl font-bold text-[var(--color-heading)]">
                 {selectedRate && selectedCountryMeta
                   ? `1 USD = ${selectedCountryMeta.currencySymbol}${localPerUsd.toLocaleString(undefined, {
                       maximumFractionDigits: 2,
                     })}`
                   : "Loading rates..."}
               </p>
-              <p className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">
+              <p className="mt-2 inline-flex rounded-full bg-[var(--color-primary-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--color-primary)]">
                 Trusted rate feed via backend
               </p>
             </div>
 
             <div className="mt-6 space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">You send</span>
-                <span className="font-semibold text-[#42526b]">
+                <span className="text-[var(--color-text-muted)]">You send</span>
+                <span className="font-semibold text-[var(--color-text)]">
                     ${amountUsd.toFixed(2)} /{" "}
                     {usdToSbtcSatoshis(amountUsd, btcUsdPrice).toLocaleString()} sats
                   </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Recipient gets</span>
-                <span className="font-semibold text-[#42526b]">
+                <span className="text-[var(--color-text-muted)]">Recipient gets</span>
+                <span className="font-semibold text-[var(--color-text)]">
                   ${recipientGetsUsd.toFixed(2)} USDCx
                   {selectedCountryMeta ? ` / ${recipientGetsLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${selectedCountryMeta.currency}` : ""}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Transaction fee (~1%)</span>
-                <span className="font-semibold text-[#42526b]">${feeUsd.toFixed(2)}</span>
+                <span className="text-[var(--color-text-muted)]">Transaction fee (~1%)</span>
+                <span className="font-semibold text-[var(--color-text)]">${feeUsd.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Network fee</span>
-                <span className="font-semibold text-[#42526b]">${networkFeeUsd.toFixed(2)}</span>
+                <span className="text-[var(--color-text-muted)]">Network fee</span>
+                <span className="font-semibold text-[var(--color-text)]">${networkFeeUsd.toFixed(2)}</span>
               </div>
-              <div className="flex items-center justify-between border-t border-[#edf2f8] pt-3">
-                <span className="font-semibold text-[#132a52]">Total cost</span>
-                <span className="font-bold text-[#132a52]">${totalUsd.toFixed(2)}</span>
+              <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-3">
+                <span className="font-semibold text-[var(--color-heading)]">Total cost</span>
+                <span className="font-bold text-[var(--color-heading)]">${totalUsd.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#7f8ea9]">Backend USD amount</span>
-                <span className="font-semibold text-[#42526b]">${amountUsd.toFixed(2)}</span>
+                <span className="text-[var(--color-text-muted)]">Backend USD amount</span>
+                <span className="font-semibold text-[var(--color-text)]">${amountUsd.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl bg-[#eef7ff] p-3 text-xs text-[#42526b]">⚡ Arrives in 5-15 minutes</div>
-            <p className="mt-3 text-xs text-[#7f8ea9]">🛡️ Rate from live external APIs, with mobile-money payouts routed through Paystack or CinetPay where available</p>
+            <div className="mt-5 rounded-xl bg-[var(--color-primary-soft)] p-3 text-xs text-[var(--color-primary)]">⚡ Arrives in 5-15 minutes</div>
+            <p className="mt-3 text-xs text-[var(--color-text-muted)]">🛡️ Rate from live external APIs, with mobile-money payouts routed through Paystack or CinetPay where available</p>
 
             <div className="mt-5 space-y-2">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-[#ff7448] px-4 py-3 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                className="w-full rounded-xl bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-[#0f0f0f] hover:opacity-95 disabled:opacity-60"
                 disabled={isSubmitting || !canSubmitForm}
               >
                 {isSubmitting
@@ -756,7 +757,7 @@ export default function SendPage() {
               </button>
               <button
                 type="button"
-                className="w-full rounded-xl border border-[#ff9c7f] bg-white px-4 py-3 text-sm font-semibold text-[#ff7448]"
+                className="w-full rounded-xl border border-[var(--color-primary)] bg-transparent px-4 py-3 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
                 onClick={() => {
                   setReceiverWallet("");
                   setRecipientName("");
@@ -773,20 +774,20 @@ export default function SendPage() {
             </div>
 
             {pendingStacksTxId ? (
-              <div className="mt-5 rounded-xl border border-[#dbe4f0] bg-[#fbfcff] p-4 text-xs text-[#42526b]">
-                <p className="font-semibold text-[#132a52]">On-Chain Transaction</p>
+              <div className="mt-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-xs text-[var(--color-text)]">
+                <p className="font-semibold text-[var(--color-heading)]">On-Chain Transaction</p>
                 <p className="mt-2 break-all">Tx ID: {pendingStacksTxId}</p>
                 <a
                   href={getStacksTxExplorerUrl(pendingStacksTxId)}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 inline-flex text-[#ff7448] hover:underline"
+                  className="mt-2 inline-flex text-[var(--color-primary)] hover:underline"
                 >
                   View in explorer
                 </a>
                 {pendingClaimSecret ? (
                   <>
-                    <p className="mt-3 font-semibold text-[#132a52]">Claim Secret</p>
+                    <p className="mt-3 font-semibold text-[var(--color-heading)]">Claim Secret</p>
                     <div className="mt-1 flex items-start gap-2">
                       <p className="break-all font-mono text-[11px] flex-1">{pendingClaimSecret}</p>
                       <button
@@ -796,17 +797,17 @@ export default function SendPage() {
                           setCopiedSecret(true);
                           setTimeout(() => setCopiedSecret(false), 2000);
                         }}
-                        className="shrink-0 rounded p-1 hover:bg-[#e8eef8] transition-colors"
+                        className="shrink-0 rounded p-1 hover:bg-[var(--color-border)] transition-colors"
                         title="Copy claim secret"
                       >
                         {copiedSecret ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <Check className="w-3.5 h-3.5 text-[var(--color-primary)]" />
                         ) : (
-                          <Copy className="w-3.5 h-3.5 text-[#8b99b0]" />
+                          <Copy className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
                         )}
                       </button>
                     </div>
-                    <p className="mt-1 text-[10px] text-[#d97706] font-medium">
+                    <p className="mt-1 text-[10px] text-[var(--color-danger-500)] font-medium">
                       ⚠ Share this secret with the receiver — they need it to claim on-chain.
                     </p>
                   </>
@@ -815,8 +816,8 @@ export default function SendPage() {
             ) : null}
 
             {transferResult ? (
-              <div className="mt-5 rounded-xl bg-[#f6f9fe] p-4 text-xs text-[#42526b]">
-                <p className="font-semibold text-[#132a52]">Latest Transfer</p>
+              <div className="mt-5 rounded-xl bg-[var(--color-surface-muted)] p-4 text-xs text-[var(--color-text)]">
+                <p className="font-semibold text-[var(--color-heading)]">Latest Transfer</p>
                 <p className="mt-2 break-all">ID: {transferResult.id}</p>
                 <p>Status: {transferResult.status}</p>
                 <p>Fee: ${transferResult.fee.toFixed(2)}</p>
@@ -828,29 +829,29 @@ export default function SendPage() {
         </form>
       </div>
 
-      <footer className="bg-[#0f2b57] px-4 py-12 text-white">
+      <footer className="bg-[var(--color-surface)] px-4 py-12 text-[var(--color-text)]">
         <div className="mx-auto grid max-w-[1180px] gap-8 text-sm md:grid-cols-4">
           <div>
-            <p className="mb-3 text-2xl font-bold">₿ BitExpress</p>
-            <p className="text-white/80">Send money across Africa instantly with Bitcoin-powered remittance.</p>
+            <p className="mb-3 text-2xl font-bold text-[var(--color-heading)]">₿ BitExpress</p>
+            <p className="text-[var(--color-text-muted)]">Send money across Africa instantly with Bitcoin-powered remittance.</p>
           </div>
           <div>
-            <p className="mb-3 font-semibold">Product</p>
-            <p className="mb-2 text-white/80">How it Works</p>
-            <p className="mb-2 text-white/80">Pricing</p>
-            <p className="text-white/80">Countries</p>
+            <p className="mb-3 font-semibold text-[var(--color-heading)]">Product</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">How it Works</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">Pricing</p>
+            <p className="text-[var(--color-text-muted)]">Countries</p>
           </div>
           <div>
-            <p className="mb-3 font-semibold">Company</p>
-            <p className="mb-2 text-white/80">About</p>
-            <p className="mb-2 text-white/80">Blog</p>
-            <p className="text-white/80">Careers</p>
+            <p className="mb-3 font-semibold text-[var(--color-heading)]">Company</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">About</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">Blog</p>
+            <p className="text-[var(--color-text-muted)]">Careers</p>
           </div>
           <div>
-            <p className="mb-3 font-semibold">Support</p>
-            <p className="mb-2 text-white/80">Help Center</p>
-            <p className="mb-2 text-white/80">Contact</p>
-            <p className="text-white/80">FAQ</p>
+            <p className="mb-3 font-semibold text-[var(--color-heading)]\">Support</p>
+            <p className="mb-2 text-[var(--color-text-muted)]\">Help Center</p>
+            <p className="mb-2 text-[var(--color-text-muted)]\">Contact</p>
+            <p className="text-[var(--color-text-muted)]\">FAQ</p>
           </div>
         </div>
       </footer>

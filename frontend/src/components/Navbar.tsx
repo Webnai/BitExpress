@@ -87,22 +87,20 @@ export default function Navbar() {
     : "text-[#5f6f88] hover:text-[#132a52]";
   const mobileTextClass = isLandingPage ? "text-[var(--color-text-muted)]" : "text-[#5f6f88]";
 
-  const visibleNavItems = connected ? [...PUBLIC_NAV, ...PROTECTED_NAV] : PUBLIC_NAV;
+  const visibleNavItems = connected ? [...PUBLIC_NAV, ...PROTECTED_NAV] : [];
 
   return (
     <nav
       style={{
-        background: isLandingPage ? "rgba(255, 255, 255, 0.92)" : "rgba(255, 255, 255, 0.97)",
-        borderBottom: isLandingPage ? "1px solid var(--color-border)" : "1px solid #e1e8f3",
+        background: "rgba(15, 15, 15, 0.98)",
+        borderBottom: "1px solid var(--color-border)",
         backdropFilter: "blur(8px)",
       }}
       className="sticky top-0 z-50 px-4 py-3"
     >
       <div className={`${navContainerClass} mx-auto flex items-center justify-between gap-4`}>
         <Link href="/" className="flex items-center gap-2">
-          <span className={isLandingPage ? "text-2xl font-bold gradient-text" : "text-xl font-bold text-[#132a52]"}>
-            ₿ BitExpress
-          </span>
+          <span className="text-2xl font-bold gradient-text">₿ BitExpress</span>
         </Link>
 
         {/* Desktop nav links */}
@@ -125,18 +123,12 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {connected && address ? (
             <>
-              {/* Notification bell */}
-              <button className="relative p-2 rounded-lg text-[#5f6f88] hover:text-[#132a52] hover:bg-[#f6f9fe] transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </button>
               <WalletAvatar address={address} size={32} />
-              <span className="text-xs text-[#5f6f88] font-mono max-w-[190px] truncate" title={address}>
+              <span className="text-xs text-[var(--color-text-muted)] font-mono max-w-[190px] truncate" title={address}>
                 {displayAddress ?? address}
               </span>
               <button
-                className="rounded-lg border border-[#e1e8f3] bg-white px-3 py-1.5 text-xs font-semibold text-[#5f6f88] hover:bg-[#f6f9fe] hover:text-[#132a52] transition-colors"
+                className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-xs font-semibold text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
                 onClick={() => void handleDisconnect()}
               >
                 Disconnect
@@ -144,11 +136,11 @@ export default function Navbar() {
             </>
           ) : (
             <button
-              className="btn-primary text-sm px-3 py-2"
+              className="btn-primary text-sm px-4 py-2"
               onClick={() => void handleConnect()}
               disabled={isConnecting}
             >
-              {isConnecting ? "Connecting…" : "Connect Wallet"}
+              {isConnecting ? "Connecting…" : "Connect Leather"}
             </button>
           )}
         </div>
@@ -177,7 +169,7 @@ export default function Navbar() {
       {menuOpen && (
         <div
           className="md:hidden mt-3 pt-3 border-t"
-          style={{ borderColor: isLandingPage ? "var(--color-border)" : "#e1e8f3" }}
+          style={{ borderColor: "var(--color-border)" }}
         >
           {visibleNavItems.map((link) => (
             <Link
@@ -185,7 +177,7 @@ export default function Navbar() {
               href={link.href}
               onClick={() => setMenuOpen(false)}
               className={`block px-4 py-2 text-sm font-medium ${
-                pathname === link.href ? "text-[var(--color-primary)]" : mobileTextClass
+                pathname === link.href ? "text-[var(--color-primary)]" : "text-[var(--color-text-muted)]"
               }`}
             >
               {link.label}
@@ -195,11 +187,11 @@ export default function Navbar() {
           <div className="px-4 pt-3">
             {connected && address ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2.5 rounded-xl bg-[#f6f9fe] px-3 py-2">
+                <div className="flex items-center gap-2.5 rounded-xl bg-[var(--color-surface-muted)] px-3 py-2">
                   <WalletAvatar address={address} size={28} />
                   <div className="flex flex-col leading-tight min-w-0">
-                    <span className="text-[11px] font-semibold text-[#132a52]">{walletName}</span>
-                    <span className="text-[11px] text-[#7f8ea9] font-mono truncate">{displayAddress}</span>
+                    <span className="text-[11px] font-semibold text-[var(--color-text)]">{walletName}</span>
+                    <span className="text-[11px] text-[var(--color-text-muted)] font-mono truncate">{displayAddress}</span>
                   </div>
                 </div>
                 <button
@@ -209,22 +201,20 @@ export default function Navbar() {
                     setMenuOpen(false);
                   }}
                 >
-                  Disconnect Wallet
+                  Disconnect
                 </button>
               </div>
             ) : (
-              <div>
-                <button
-                  className="btn-primary text-sm px-4 py-2 w-full"
-                  onClick={() => {
-                    void handleConnect();
-                    setMenuOpen(false);
-                  }}
-                  disabled={isConnecting}
-                >
-                  {isConnecting ? "Connecting…" : "Connect Wallet"}
-                </button>
-              </div>
+              <button
+                className="btn-primary text-sm px-4 py-2 w-full"
+                onClick={() => {
+                  void handleConnect();
+                  setMenuOpen(false);
+                }}
+                disabled={isConnecting}
+              >
+                {isConnecting ? "Connecting…" : "Connect Leather"}
+              </button>
             )}
           </div>
         </div>

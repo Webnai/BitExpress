@@ -359,11 +359,11 @@ export default function ReceivePage() {
 
   // ── Main loaded UI ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f3f6fb]">
+    <div className="min-h-screen bg-[var(--background)]">
       <div className="mx-auto max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <div className="mb-5">
-          <h1 className="text-3xl font-bold text-[#132a52]">Receive Money</h1>
-          <p className="text-[#6f7d95] mt-1 text-sm">Claim your incoming Stacks-secured transfer and trigger the mobile-money payout</p>
+          <h1 className="text-3xl font-bold text-[var(--color-heading)]">Receive Money</h1>
+          <p className="text-[var(--color-text-muted)] mt-1 text-sm">Claim your incoming Stacks-secured transfer and trigger the mobile-money payout</p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
@@ -371,78 +371,78 @@ export default function ReceivePage() {
           <div className="space-y-4">
             {/* Status banner */}
             {isClaimed ? (
-              <div className="flex items-center justify-between bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2.5 text-[#065f46] font-semibold text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-[#10b981]" />
+              <div className="flex items-center justify-between bg-[var(--color-primary-soft)] border border-[var(--color-primary)] rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5 text-[var(--color-primary)] font-semibold text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-[var(--color-primary)]" />
                   Payment Received Successfully
                 </div>
-                <span className="text-xs bg-[#10b981] text-white px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                <span className="text-xs bg-[var(--color-primary)] text-[#0f0f0f] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
                   <Check className="w-3 h-3" /> Verified
                 </span>
               </div>
             ) : transaction ? (
-              <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2.5 text-[#92400e] font-semibold text-sm">
-                  <Clock className="w-5 h-5 text-[#f59e0b]" />
+              <div className="flex items-center justify-between bg-[var(--color-primary-soft)] border border-[var(--color-primary)] rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5 text-[var(--color-primary)] font-semibold text-sm">
+                  <Clock className="w-5 h-5 text-[var(--color-primary)]" />
                   Transfer Ready to Claim
                 </div>
-                <span className="text-xs bg-[#ff7448] text-white px-2.5 py-0.5 rounded-full font-semibold">
+                <span className="text-xs bg-[var(--color-primary)] text-[#0f0f0f] px-2.5 py-0.5 rounded-full font-semibold">
                   Pending
                 </span>
               </div>
             ) : (
-              <div className="flex items-center justify-between bg-[#eff6ff] border border-[#bfdbfe] rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2.5 text-[#1d4ed8] font-semibold text-sm">
-                  <Clock className="w-5 h-5 text-[#3b82f6]" />
+              <div className="flex items-center justify-between bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2.5 text-[var(--color-text)] font-semibold text-sm">
+                  <Clock className="w-5 h-5 text-[var(--color-text)]" />
                   Load a transfer to view claim details
                 </div>
-                <span className="text-xs bg-[#3b82f6] text-white px-2.5 py-0.5 rounded-full font-semibold">
+                <span className="text-xs bg-[var(--color-border)] text-[var(--color-text)] px-2.5 py-0.5 rounded-full font-semibold">
                   Waiting
                 </span>
               </div>
             )}
 
             {/* Main transaction card */}
-            <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] p-6 space-y-5">
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-[0_4px_18px_rgba(0,0,0,0.2)] p-6 space-y-5">
               {/* From */}
               <div>
-                <p className="text-xs text-[#8b99b0] font-semibold uppercase tracking-wider mb-3">From</p>
+                <p className="text-xs text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-3">From</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#132a52] to-[#2a4a82] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[#0088cc] flex items-center justify-center text-[#0f0f0f] text-sm font-bold flex-shrink-0">
                     {getInitials(senderLabel)}
                   </div>
                   <div>
-                    <p className="font-semibold text-[#132a52]">{senderLabel}</p>
+                    <p className="font-semibold text-[var(--color-heading)]">{senderLabel}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       {transaction && flagCountry ? (
                         <CountryFlag country={flagCountry} size={16} />
                       ) : (
                         <span className="text-base">{sourceCountryLabel}</span>
                       )}
-                      <span className="text-sm text-[#6f7d95]">{sourceCountryLabel}</span>
+                      <span className="text-sm text-[var(--color-text-muted)]">{sourceCountryLabel}</span>
                       {transaction && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] ml-0.5" title="verified" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] ml-0.5" title="verified" />
                       )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="h-px bg-[#f0f4fb]" />
+              <div className="h-px bg-[var(--color-border)]" />
 
               {/* Amount Received */}
               <div>
-                <p className="text-xs text-[#8b99b0] font-semibold uppercase tracking-wider mb-3">Amount Received</p>
-                <div className="rounded-xl border-2 border-[#ff7448] bg-[#fffaf8] p-4 flex items-center justify-between">
+                <p className="text-xs text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-3">Amount Received</p>
+                <div className="rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary-soft)] p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-4xl font-bold text-[#132a52] tracking-tight">{formatBtc(btcAmount)}</p>
-                    <p className="text-sm text-[#6f7d95] mt-1">
+                    <p className="text-4xl font-bold text-[var(--color-heading)] tracking-tight">{formatBtc(btcAmount)}</p>
+                    <p className="text-sm text-[var(--color-text-muted)] mt-1">
                       ≈ ${transaction?.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "0.00"} USD
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <span className="px-3 py-1.5 rounded-full bg-[#ff7448] text-white text-sm font-semibold">BTC</span>
-                    <span className="px-3 py-1.5 rounded-full border border-[#e1e8f3] text-[#6f7d95] text-sm font-semibold">sBTC</span>
+                    <span className="px-3 py-1.5 rounded-full bg-[var(--color-primary)] text-[#0f0f0f] text-sm font-semibold">BTC</span>
+                    <span className="px-3 py-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-text-muted)] text-sm font-semibold">sBTC</span>
                   </div>
                 </div>
               </div>
@@ -450,65 +450,65 @@ export default function ReceivePage() {
               {/* Transaction metadata grid */}
               <div className="grid grid-cols-2 gap-3">
                 {/* Transaction ID – full width */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 col-span-2 relative">
-                  <p className="text-xs text-[#8b99b0] mb-1">Transaction ID</p>
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 col-span-2 relative">
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Transaction ID</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-mono font-semibold text-[#132a52] break-all flex-1">{transaction?.id ?? "--"}</p>
+                    <p className="text-sm font-mono font-semibold text-[var(--color-heading)] break-all flex-1">{transaction?.id ?? "--"}</p>
                     <button
                       onClick={copyTxId}
-                      className="flex-shrink-0 text-[#6f7d95] hover:text-[#ff7448] transition-colors p-1"
+                      className="flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors p-1"
                       title="Copy ID"
                     >
-                      {copiedId ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      {copiedId ? <Check className="w-4 h-4 text-[var(--color-primary)]" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
                 {/* Date & Time */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 relative">
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 relative">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-[#8b99b0]">Date &amp; Time</p>
-                    <Clock className="w-3.5 h-3.5 text-[#c0cddf]" />
+                    <p className="text-xs text-[var(--color-text-muted)]">Date &amp; Time</p>
+                    <Clock className="w-3.5 h-3.5 text-[var(--color-border)]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#132a52]">{createdDate}</p>
-                  <p className="text-xs text-[#6f7d95]">{createdTime}</p>
+                  <p className="text-sm font-semibold text-[var(--color-heading)]">{createdDate}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">{createdTime}</p>
                 </div>
 
                 {/* Network */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 relative">
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 relative">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-[#8b99b0]">Network</p>
-                    <Info className="w-3.5 h-3.5 text-[#c0cddf]" />
+                    <p className="text-xs text-[var(--color-text-muted)]">Network</p>
+                    <Info className="w-3.5 h-3.5 text-[var(--color-border)]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#132a52]">Bitcoin Mainnet</p>
+                  <p className="text-sm font-semibold text-[var(--color-heading)]">Bitcoin Mainnet</p>
                 </div>
 
                 {/* Confirmations */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 relative">
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 relative">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-[#8b99b0]">Confirmations</p>
-                    <Info className="w-3.5 h-3.5 text-[#c0cddf]" />
+                    <p className="text-xs text-[var(--color-text-muted)]">Confirmations</p>
+                    <Info className="w-3.5 h-3.5 text-[var(--color-border)]" />
                   </div>
-                  <p className={`text-sm font-semibold ${isClaimed ? "text-[#10b981]" : "text-[#ff7448]"}`}>
+                  <p className={`text-sm font-semibold ${isClaimed ? "text-[var(--color-primary)]" : "text-[var(--color-danger-500)]"}`}>
                     {isClaimed ? "6/6 Confirmed" : "Awaiting confirm."}
                   </p>
                 </div>
 
                 {/* Transaction Fee */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 relative">
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 relative">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-[#8b99b0]">Transaction Fee</p>
-                    <Info className="w-3.5 h-3.5 text-[#c0cddf]" />
+                    <p className="text-xs text-[var(--color-text-muted)]">Transaction Fee</p>
+                    <Info className="w-3.5 h-3.5 text-[var(--color-border)]" />
                   </div>
-                  <p className="text-sm font-semibold text-[#132a52]">{feeBtc.toFixed(5)} BTC</p>
+                  <p className="text-sm font-semibold text-[var(--color-heading)]">{feeBtc.toFixed(5)} BTC</p>
                 </div>
 
                 {/* Status – full width */}
-                <div className="rounded-xl bg-[#f6f9fe] p-3 col-span-2">
-                  <p className="text-xs text-[#8b99b0] mb-1">Status</p>
+                <div className="rounded-xl bg-[var(--color-surface-muted)] p-3 col-span-2">
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Status</p>
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isClaimed ? "bg-[#10b981]" : "bg-[#ff7448]"}`} />
-                    <p className="text-sm font-semibold text-[#132a52]">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isClaimed ? "bg-[var(--color-primary)]" : "bg-[var(--color-danger-500)]"}`} />
+                    <p className="text-sm font-semibold text-[var(--color-heading)]">
                       {statusLabel}
                     </p>
                   </div>
@@ -517,8 +517,8 @@ export default function ReceivePage() {
             </div>
 
             {/* Withdrawal Methods */}
-            <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] p-6">
-              <p className="text-base font-semibold text-[#132a52] mb-4">Choose Withdrawal Method</p>
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-[0_4px_18px_rgba(0,0,0,0.2)] p-6">
+              <p className="text-base font-semibold text-[var(--color-heading)] mb-4">Choose Withdrawal Method</p>
               <div className="space-y-3">
                 {withdrawalMethods.map(({ method, icon, iconBg, title, subtitle, badge, badgeColor }) => (
                   <button
@@ -526,8 +526,8 @@ export default function ReceivePage() {
                     onClick={() => setSelectedMethod(method)}
                     className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all text-left ${
                       selectedMethod === method
-                        ? "border-[#ff7448] bg-[#fff8f6]"
-                        : "border-[#e1e8f3] hover:border-[#ff7448]/40"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+                        : "border-[var(--color-border)] hover:border-[var(--color-primary)]/40"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -535,13 +535,13 @@ export default function ReceivePage() {
                         {icon}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-[#132a52]">{title}</p>
-                        <p className="text-xs text-[#8b99b0]">{subtitle}</p>
+                        <p className="text-sm font-semibold text-[var(--color-heading)]">{title}</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">{subtitle}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${badgeColor}`}>{badge}</span>
-                      <ChevronRight className="w-4 h-4 text-[#8b99b0]" />
+                      <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)]" />
                     </div>
                   </button>
                 ))}
@@ -550,23 +550,23 @@ export default function ReceivePage() {
 
             {/* Recent Receives */}
             {recentReceives.length > 0 && (
-              <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] p-6">
-                <p className="text-base font-semibold text-[#132a52] mb-4">Recent Receives</p>
+              <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-[0_4px_18px_rgba(0,0,0,0.2)] p-6">
+                <p className="text-base font-semibold text-[var(--color-heading)] mb-4">Recent Receives</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {recentReceives.map((r) => (
                     <button
                       key={r.id}
                       onClick={() => fetchTransaction(r.id)}
-                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-[#f6f9fe] transition-colors text-center"
+                      className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-[var(--color-surface-muted)] transition-colors text-center"
                     >
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#132a52] to-[#2a4a82] flex items-center justify-center text-white text-sm font-bold">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[#0088cc] flex items-center justify-center text-[#0f0f0f] text-sm font-bold">
                         {getInitials(r.counterpartyName ?? r.counterpartyWallet)}
                       </div>
-                      <p className="text-xs font-semibold text-[#132a52] leading-tight line-clamp-1 w-full">
+                      <p className="text-xs font-semibold text-[var(--color-heading)] leading-tight line-clamp-1 w-full">
                         {r.counterpartyName ?? truncateAddress(r.counterpartyWallet)}
                       </p>
-                      <p className="text-xs font-bold text-[#ff7448]">{formatBtc(r.amountUsd / btcUsdPrice)} BTC</p>
-                      <p className="text-[10px] text-[#8b99b0]">{timeAgo(r.createdAt)}</p>
+                      <p className="text-xs font-bold text-[var(--color-primary)]">{formatBtc(r.amountUsd / btcUsdPrice)} BTC</p>
+                      <p className="text-[10px] text-[var(--color-text-muted)]">{timeAgo(r.createdAt)}</p>
                     </button>
                   ))}
                 </div>
@@ -576,61 +576,61 @@ export default function ReceivePage() {
 
           {/* ── Right sidebar ── */}
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] p-6 space-y-5">
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-[0_4px_18px_rgba(0,0,0,0.2)] p-6 space-y-5">
               {/* Header */}
               <div>
-                <h2 className="text-xl font-bold text-[#132a52]">Claim Summary</h2>
+                <h2 className="text-xl font-bold text-[var(--color-heading)]">Claim Summary</h2>
                 <div className="flex items-center gap-1.5 mt-1.5">
-                  <Shield className="w-3.5 h-3.5 text-[#10b981]" />
-                  <span className="text-xs text-[#10b981] font-semibold">Blockchain Verified</span>
+                  <Shield className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                  <span className="text-xs text-[var(--color-primary)] font-semibold">Blockchain Verified</span>
                 </div>
               </div>
 
               {/* Available to claim */}
-              <div className="rounded-xl bg-[#f6f9fe] p-4">
-                <p className="text-xs text-[#8b99b0] mb-1">Available to Claim</p>
-                <p className="text-3xl font-bold text-[#132a52]">
+              <div className="rounded-xl bg-[var(--color-surface-muted)] p-4">
+                <p className="text-xs text-[var(--color-text-muted)] mb-1">Available to Claim</p>
+                <p className="text-3xl font-bold text-[var(--color-heading)]">
                   {formatBtc(btcAmount)}{" "}
                   <span className="text-lg font-semibold">BTC</span>
                 </p>
-                <p className="text-sm text-[#6f7d95] mt-1">
+                <p className="text-sm text-[var(--color-text-muted)] mt-1">
                   ${transaction?.amountUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "0.00"} USD
                 </p>
-                <p className="text-xs text-[#10b981] mt-1 font-semibold">▲ +2.3% (24h)</p>
+                <p className="text-xs text-[var(--color-primary)] mt-1 font-semibold">▲ +2.3% (24h)</p>
               </div>
 
-              <div className="h-px bg-[#f0f4fb]" />
+              <div className="h-px bg-[var(--color-border)]" />
 
               {/* Fee breakdown */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#8b99b0]">Original Amount</span>
-                  <span className="font-semibold text-[#132a52]">{formatBtc(btcAmount)} BTC</span>
+                  <span className="text-[var(--color-text-muted)]">Original Amount</span>
+                  <span className="font-semibold text-[var(--color-heading)]">{formatBtc(btcAmount)} BTC</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#8b99b0]">Network Fee</span>
-                  <span className="text-xs text-[#10b981] font-semibold">Paid by sender</span>
+                  <span className="text-[var(--color-text-muted)]">Network Fee</span>
+                  <span className="text-xs text-[var(--color-primary)] font-semibold">Paid by sender</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#8b99b0]">Processing Status</span>
-                  <span className={`text-xs font-semibold ${isClaimed ? "text-[#10b981]" : "text-[#ff7448]"}`}>
+                  <span className="text-[var(--color-text-muted)]">Processing Status</span>
+                  <span className={`text-xs font-semibold ${isClaimed ? "text-[var(--color-primary)]" : "text-[var(--color-danger-500)]"}`}>
                     {isClaimed ? "Complete" : "Ready"}
                   </span>
                 </div>
               </div>
 
-              <div className="h-px bg-[#f0f4fb]" />
+              <div className="h-px bg-[var(--color-border)]" />
 
               {/* You Receive */}
               <div>
-                <p className="text-xs text-[#8b99b0] font-semibold uppercase tracking-wider mb-2">You Receive</p>
-                <div className="flex items-start gap-2.5 bg-[#fff8f6] rounded-xl p-3 border border-[#ffe4d9]">
-                  <div className="w-8 h-8 rounded-lg bg-[#ff7448] flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Zap className="w-4 h-4 text-white" fill="white" />
+                <p className="text-xs text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-2">You Receive</p>
+                <div className="flex items-start gap-2.5 bg-[var(--color-primary-soft)] rounded-xl p-3 border border-[var(--color-primary)]">
+                  <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Zap className="w-4 h-4 text-[#0f0f0f]" fill="#0f0f0f" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#132a52]">Choose how to receive your funds</p>
-                    <p className="text-xs text-[#6f7d95] mt-0.5">Mobile money arrives instantly</p>
+                    <p className="text-sm font-semibold text-[var(--color-heading)]">Choose how to receive your funds</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Mobile money arrives instantly</p>
                   </div>
                 </div>
                 <ul className="mt-3 space-y-2">
@@ -639,8 +639,8 @@ export default function ReceivePage() {
                     "Funds held in secure escrow",
                     "Instant withdrawal available",
                   ].map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-xs text-[#4b5563]">
-                      <Check className="w-3.5 h-3.5 text-[#10b981] flex-shrink-0" />
+                    <li key={item} className="flex items-center gap-2 text-xs text-[var(--color-text)]">
+                      <Check className="w-3.5 h-3.5 text-[var(--color-primary)] flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -649,11 +649,11 @@ export default function ReceivePage() {
 
               {/* Actions */}
               {isClaimed ? (
-                <div className="rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] p-4 text-center">
-                  <CheckCircle2 className="w-8 h-8 text-[#10b981] mx-auto mb-2" />
-                  <p className="font-semibold text-[#065f46]">Funds Claimed!</p>
+                <div className="rounded-xl bg-[var(--color-primary-soft)] border border-[var(--color-primary)] p-4 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-[var(--color-primary)] mx-auto mb-2" />
+                  <p className="font-semibold text-[var(--color-heading)]">Funds Claimed!</p>
                   {claimedAt && (
-                    <p className="text-xs text-[#6f7d95] mt-1">{new Date(claimedAt).toLocaleString()}</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-1">{new Date(claimedAt).toLocaleString()}</p>
                   )}
                 </div>
               ) : (
@@ -667,20 +667,20 @@ export default function ReceivePage() {
                       placeholder="Paste the 64-char claim secret"
                       className="font-mono text-xs"
                     />
-                    <p className="text-[11px] text-[#8b99b0]">
+                    <p className="text-[11px] text-[var(--color-text-muted)]">
                       This secret is required to execute <span className="font-mono">claim-remittance</span> on-chain.
                     </p>
                   </div>
 
                   {claimTxId ? (
-                    <div className="rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-2 text-xs text-[#42526b]">
-                      <p className="font-semibold text-[#132a52]">Latest Claim Tx</p>
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-xs text-[var(--color-text)]">
+                      <p className="font-semibold text-[var(--color-heading)]">Latest Claim Tx</p>
                       <p className="mt-1 break-all">{claimTxId}</p>
                       <a
                         href={getStacksTxExplorerUrl(claimTxId)}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 inline-flex text-[#ff7448] hover:underline"
+                        className="mt-1 inline-flex text-[var(--color-primary)] hover:underline"
                       >
                         View in explorer
                       </a>
@@ -688,7 +688,7 @@ export default function ReceivePage() {
                   ) : null}
 
                   {!address && (
-                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-xs text-[var(--color-danger-500)] bg-[var(--color-danger-soft)] border border-[var(--color-danger-500)] rounded-lg px-3 py-2">
                       Connect your wallet to claim funds
                     </p>
                   )}

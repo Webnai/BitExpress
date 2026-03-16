@@ -12,7 +12,7 @@ import {
   signOutFirebaseSession,
 } from "@/lib/firebaseAuth";
 
-type WalletName = "Leather" | "Xverse";
+type WalletName = "Leather";
 
 interface WalletContextValue {
   connected: boolean;
@@ -57,7 +57,6 @@ export function shortAddress(value: string | null): string | null {
 function walletNameFromProviderId(providerId: string | null): WalletName | null {
   if (!providerId) return null;
   const normalized = providerId.toLowerCase();
-  if (normalized.includes("xverse")) return "Xverse";
   if (normalized.includes("leather")) return "Leather";
   return null;
 }
@@ -162,7 +161,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { connect, getSelectedProviderId, request } = await loadStacksConnect();
+      const { connect, getSelectedProviderId, request, disconnect } = await loadStacksConnect();
       const result = await connect({
         network: STACKS_NETWORK,
         forceWalletSelect: true,
@@ -170,13 +169,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         enableLocalStorage: true,
       });
 
+      const selectedProviderId = getSelectedProviderId();
+      if (!walletNameFromProviderId(selectedProviderId)) {
+        disconnect();
+        throw new Error("Only the Leather wallet is supported. Please select Leather to continue.");
+      }
+
       const connectedEntry = pickAddressEntry(result.addresses);
       const connectedAddress = connectedEntry?.address ?? null;
       if (!connectedAddress) {
         throw new Error("No address returned from wallet. Please try again.");
       }
 
-      const selectedWalletName = walletNameFromProviderId(getSelectedProviderId()) ?? "Leather";
+      const selectedWalletName = "Leather";
 
       const challenge = await apiCreateAuthChallenge(connectedAddress).catch((error) => {
         console.error("[wallet.connect] auth challenge failed", {

@@ -30,7 +30,7 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather or Xverse) and load it with sBTC — real Bitcoin on Stacks." },
+  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather) and load it with sBTC — real Bitcoin on Stacks." },
   { step: "2", title: "Send via Smart Contract", desc: "Enter recipient details and confirm the escrow transaction directly from your wallet." },
   { step: "3", title: "Receiver Claims & Cashes Out", desc: "The receiver enters the claim secret, releases funds on-chain, and withdraws to mobile money or a bank." },
 ];
@@ -44,7 +44,7 @@ const COUNTRIES = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen landing-page">
+    <div className="min-h-screen bg-[var(--background)]">
       <section className="px-4 pt-14 pb-16 md:pt-18 md:pb-20 landing-hero-bg">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
           <div>

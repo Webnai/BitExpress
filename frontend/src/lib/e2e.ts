@@ -1,4 +1,4 @@
-type WalletName = "Leather" | "Xverse";
+type WalletName = "Leather";
 
 export interface BitExpressE2EState {
   wallet?: {

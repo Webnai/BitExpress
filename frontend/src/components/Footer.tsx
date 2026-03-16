@@ -2,13 +2,13 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0f1e36] text-[#94a3b8] mt-auto">
+    <footer className="bg-[var(--color-surface)] text-[var(--color-text-muted)] mt-auto border-t border-[var(--color-border)]">
       <div className="mx-auto max-w-[1180px] px-6 py-14">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-3">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold text-[#ff7448]">₿ BitExpress</span>
+              <span className="text-xl font-bold text-[var(--color-primary)]">₿ BitExpress</span>
             </Link>
             <p className="text-sm leading-relaxed max-w-[220px]">
               Send money across Africa instantly with Bitcoin-powered remittance.
@@ -17,7 +17,7 @@ export default function Footer() {
               {/* Twitter / X */}
               <a
                 href="#"
-                className="w-8 h-8 rounded-full border border-[#1e3a5f] flex items-center justify-center hover:border-[#ff7448] hover:text-[#ff7448] transition-colors"
+                className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
                 aria-label="Twitter"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -27,7 +27,7 @@ export default function Footer() {
               {/* LinkedIn */}
               <a
                 href="#"
-                className="w-8 h-8 rounded-full border border-[#1e3a5f] flex items-center justify-center hover:border-[#ff7448] hover:text-[#ff7448] transition-colors"
+                className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
                 aria-label="LinkedIn"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -37,7 +37,7 @@ export default function Footer() {
               {/* Facebook */}
               <a
                 href="#"
-                className="w-8 h-8 rounded-full border border-[#1e3a5f] flex items-center justify-center hover:border-[#ff7448] hover:text-[#ff7448] transition-colors"
+                className="w-8 h-8 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
                 aria-label="Facebook"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

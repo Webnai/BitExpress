@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
 export type PayoutProvider = "paystack" | "cinetpay" | "stacks";
 
 export interface MobileMoneyOperator {

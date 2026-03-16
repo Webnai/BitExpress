@@ -5,14 +5,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff7448] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-[#ff7448] text-white hover:opacity-95",
-        secondary: "border border-[#dfe6f2] bg-white text-[#132a52] hover:bg-[#f7f9fd]",
-        ghost: "text-[#132a52] hover:bg-[#f3f6fb]",
-        destructive: "bg-red-600 text-white hover:bg-red-700",
+        default: "bg-[var(--color-primary)] text-[#0f0f0f] hover:opacity-95",
+        secondary: "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-heading)] hover:bg-[var(--color-surface-muted)]\",
+        ghost: "text-[var(--color-heading)] hover:bg-[var(--color-surface-muted)]",
+        destructive: "bg-[var(--color-danger-500)] text-white hover:opacity-95",
       },
       size: {
         default: "h-10 px-4 py-2",
