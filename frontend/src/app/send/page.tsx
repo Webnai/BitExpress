@@ -463,7 +463,7 @@ export default function SendPage() {
                   <select
                     value={sourceCountry}
                     onChange={(e) => setSourceCountry(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   >
                     {COUNTRY_OPTIONS.map((entry) => (
                       <option key={entry.code} value={entry.code}>
@@ -471,12 +471,12 @@ export default function SendPage() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[#8b99b0]">▾</span>
+                  <span className="text-[var(--color-text-muted)]">▾</span>
                 </div>
               </div>
 
-              <div className="mt-2 rounded-lg border border-[#dbe4f0] bg-[#fbfcff] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[#7f8ea9]">Recipient Country</label>
+              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Country</label>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     {selectedFlagCountry ? (
@@ -486,7 +486,7 @@ export default function SendPage() {
                   <select
                     value={destCountry}
                     onChange={(e) => setDestCountry(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[#42526b] outline-none"
+                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   >
                     {COUNTRY_OPTIONS.map((entry) => (
                       <option key={entry.code} value={entry.code}>
@@ -494,7 +494,7 @@ export default function SendPage() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[#8b99b0]">▾</span>
+                  <span className="text-[var(--color-text-muted)]">▾</span>
                 </div>
               </div>
 
@@ -848,10 +848,10 @@ export default function SendPage() {
             <p className="text-[var(--color-text-muted)]">Careers</p>
           </div>
           <div>
-            <p className="mb-3 font-semibold text-[var(--color-heading)]\">Support</p>
-            <p className="mb-2 text-[var(--color-text-muted)]\">Help Center</p>
-            <p className="mb-2 text-[var(--color-text-muted)]\">Contact</p>
-            <p className="text-[var(--color-text-muted)]\">FAQ</p>
+            <p className="mb-3 font-semibold text-[var(--color-heading)]">Support</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">Help Center</p>
+            <p className="mb-2 text-[var(--color-text-muted)]">Contact</p>
+            <p className="text-[var(--color-text-muted)]">FAQ</p>
           </div>
         </div>
       </footer>

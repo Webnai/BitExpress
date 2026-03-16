@@ -700,7 +700,7 @@ export default function ReceivePage() {
                     {isClaiming ? "Claiming…" : "Claim Funds"}
                   </Button>
                   <button
-                    className="w-full border border-[#ff7448] text-[#ff7448] rounded-lg py-2.5 text-sm font-semibold hover:bg-[#fff8f6] transition-colors"
+                    className="w-full border border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg py-2.5 text-sm font-semibold hover:bg-[var(--color-primary-soft)] transition-colors"
                     onClick={() => {
                       if (!transaction) return;
                       const txId = claimTxId ?? transaction.stacksTxId ?? transaction.id;
@@ -714,18 +714,18 @@ export default function ReceivePage() {
               )}
 
               {/* Help */}
-              <div className="flex items-center gap-1.5 text-xs text-[#8b99b0]">
+              <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
                 <HelpCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>
                   Need help?{" "}
-                  <button className="text-[#ff7448] font-semibold hover:underline">Contact support</button>
+                  <button className="text-[var(--color-primary)] font-semibold hover:underline">Contact support</button>
                 </span>
               </div>
             </div>
 
             {/* Load another transfer */}
-            <div className="bg-white rounded-2xl border border-[#e1e8f3] shadow-[0_4px_18px_rgba(15,23,42,0.04)] p-4">
-              <p className="text-sm font-semibold text-[#132a52] mb-3">Load Another Transfer</p>
+            <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-[0_4px_18px_rgba(0,0,0,0.2)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-heading)] mb-3">Load Another Transfer</p>
               <form onSubmit={loadTransaction} className="flex gap-2">
                 <Input
                   value={transferId}
