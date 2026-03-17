@@ -56,6 +56,12 @@ async function apiFetch<T>(
     idempotencyKey?: string;
   } = {}
 ): Promise<T> {
+  if (!API_BASE_URL_NORMALIZED) {
+    throw new Error(
+      "Frontend API base URL is not configured. Set NEXT_PUBLIC_API_BASE_URL in your Vercel project environment variables."
+    );
+  }
+
   const method = options.method ?? "GET";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

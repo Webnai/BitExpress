@@ -111,9 +111,13 @@ export function getCountry(code: string): Country | undefined {
   return SUPPORTED_COUNTRIES.find((c) => c.code === code);
 }
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:4000";
+const CONFIGURED_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+
+const IS_LOCAL_DEV =
+  process.env.NODE_ENV !== "production" ||
+  (typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"));
+
+export const API_BASE_URL = CONFIGURED_API_BASE_URL || (IS_LOCAL_DEV ? "http://localhost:4000" : "");
 
 export const API_BASE_URL_NORMALIZED = API_BASE_URL.replace(/\/$/, "");
