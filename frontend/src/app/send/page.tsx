@@ -48,6 +48,8 @@ const PAY_METHODS = [
 ] as const;
 
 type PayoutMethod = (typeof PAY_METHODS)[number]["key"];
+type AmountUnit = "usd" | "sbtc";
+
 type WalletHistoryRecipient = {
   wallet: string;
   name?: string;
@@ -105,6 +107,11 @@ function isLikelyStacksAddress(value: string): boolean {
   return /^S[PTMN][A-Z0-9]{20,60}$/.test(normalized);
 }
 
+function formatSbtcFromSats(sats: number): string {
+  const normalized = Math.max(0, sats);
+  return (normalized / 100_000_000).toFixed(8).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
 export default function SendPage() {
   const { address } = useWallet();
   const [sourceCountry, setSourceCountry] = useState("GHA");
@@ -113,7 +120,9 @@ export default function SendPage() {
   const [recipientName, setRecipientName] = useState("");
   const [recipientMobileProvider, setRecipientMobileProvider] = useState("");
   const [receiverWallet, setReceiverWallet] = useState("");
+  const [amountUnit, setAmountUnit] = useState<AmountUnit>("usd");
   const [amountUsdInput, setAmountUsdInput] = useState("20.00");
+  const [amountSbtcInput, setAmountSbtcInput] = useState("0.00030769");
   const [method, setMethod] = useState<PayoutMethod>("mobile_money");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingStacksTxId, setPendingStacksTxId] = useState<string | null>(null);
@@ -247,15 +256,23 @@ export default function SendPage() {
   const selectedOperator = selectedMobileMoneyOperators.find(
     (operator) => operator.code === recipientMobileProvider
   );
-  const amountUsd = Number.parseFloat(amountUsdInput) || 0;
+  const btcUsdPrice = selectedRate?.btcUsdPrice ?? 65000;
+  const amountUsd =
+    amountUnit === "usd"
+      ? Number.parseFloat(amountUsdInput) || 0
+      : (Number.parseFloat(amountSbtcInput) || 0) * btcUsdPrice;
+  const amountSatoshis =
+    amountUnit === "usd"
+      ? usdToSbtcSatoshis(amountUsd, btcUsdPrice)
+      : Math.max(0, Math.round((Number.parseFloat(amountSbtcInput) || 0) * 100_000_000));
   const feeUsd = amountUsd * 0.01;
   const networkFeeUsd = 0;
   const totalUsd = amountUsd + feeUsd + networkFeeUsd;
   const recipientGetsUsd = Math.max(amountUsd - feeUsd, 0);
   const localPerUsd = selectedRate ? selectedRate.rate / Math.max(selectedRate.btcUsdPrice, 1) : 0;
   const recipientGetsLocal = recipientGetsUsd * localPerUsd;
-  const btcUsdPrice = selectedRate?.btcUsdPrice ?? 65000;
   const connectedBalanceSbtc = sbtcBalance ? Number(sbtcBalance) / 100_000_000 : null;
+  const connectedBalanceSats = sbtcBalance ? Number(sbtcBalance) : null;
   const selectedFlagCountry = getFlagCountry(destCountry);
   const receiverWalletNormalized = receiverWallet.trim();
   const recipientNameNormalized = recipientName.trim();
@@ -270,6 +287,9 @@ export default function SendPage() {
   const isMobileOperatorValid =
     !requiresMobileOperator || selectedMobileMoneyOperators.some((operator) => operator.code === recipientMobileProvider);
   const isRecipientNameValid = recipientNameNormalized.length > 1;
+  const enforceSbtcBalanceCheck = connectedBalanceSats !== null && connectedBalanceSats > 0;
+  const hasEnoughSbtcBalance =
+    !enforceSbtcBalanceCheck || amountSatoshis <= connectedBalanceSats;
   const canSubmitForm =
     Boolean(address) &&
     isAmountValid &&
@@ -277,12 +297,46 @@ export default function SendPage() {
     isPhoneValid &&
     isLiveMobileMoneyAvailable &&
     isMobileOperatorValid &&
-    isRecipientNameValid;
+    isRecipientNameValid &&
+    hasEnoughSbtcBalance;
 
   const sendMaxLabel = useMemo(() => {
     if (connectedBalanceSbtc === null) return null;
     return `${connectedBalanceSbtc.toLocaleString(undefined, { maximumFractionDigits: 6 })} sBTC connected`;
   }, [connectedBalanceSbtc]);
+
+  function handleAmountInputChange(nextValue: string) {
+    if (amountUnit === "usd") {
+      setAmountUsdInput(nextValue);
+      const parsedUsd = Number.parseFloat(nextValue);
+      if (Number.isFinite(parsedUsd) && parsedUsd >= 0) {
+        setAmountSbtcInput(formatSbtcFromSats(usdToSbtcSatoshis(parsedUsd, btcUsdPrice)));
+      }
+      return;
+    }
+
+    setAmountSbtcInput(nextValue);
+    const parsedSbtc = Number.parseFloat(nextValue);
+    if (Number.isFinite(parsedSbtc) && parsedSbtc >= 0) {
+      setAmountUsdInput((parsedSbtc * btcUsdPrice).toFixed(2));
+    }
+  }
+
+  function handleAmountUnitChange(nextUnit: AmountUnit) {
+    if (nextUnit === amountUnit) {
+      return;
+    }
+
+    if (nextUnit === "usd") {
+      const parsedSbtc = Number.parseFloat(amountSbtcInput) || 0;
+      setAmountUsdInput((parsedSbtc * btcUsdPrice).toFixed(2));
+    } else {
+      const parsedUsd = Number.parseFloat(amountUsdInput) || 0;
+      setAmountSbtcInput(formatSbtcFromSats(usdToSbtcSatoshis(parsedUsd, btcUsdPrice)));
+    }
+
+    setAmountUnit(nextUnit);
+  }
 
   function createIdempotencyKey() {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -342,7 +396,12 @@ export default function SendPage() {
     }
 
     if (!isAmountValid) {
-      toast.error("Enter an amount between $1 and $10,000.");
+      toast.error("Enter an amount between $1 and $10,000 USD equivalent.");
+      return;
+    }
+
+    if (!hasEnoughSbtcBalance) {
+      toast.error("Insufficient sBTC balance for this transfer amount.");
       return;
     }
 
@@ -385,7 +444,7 @@ export default function SendPage() {
         const claimSecretHex = generateClaimSecretHex();
         const contractCall = await createSendRemittanceTx({
           receiverWallet: receiverWalletNormalized,
-          amountSatoshis: usdToSbtcSatoshis(amountUsd, btcUsdPrice),
+          amountSatoshis,
           sourceCountry,
           destCountry,
           claimSecretHex,
@@ -463,7 +522,7 @@ export default function SendPage() {
                   <select
                     value={sourceCountry}
                     onChange={(e) => setSourceCountry(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
+                    className="w-full appearance-none bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   >
                     {COUNTRY_OPTIONS.map((entry) => (
                       <option key={entry.code} value={entry.code}>
@@ -486,7 +545,7 @@ export default function SendPage() {
                   <select
                     value={destCountry}
                     onChange={(e) => setDestCountry(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
+                    className="w-full appearance-none bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                   >
                     {COUNTRY_OPTIONS.map((entry) => (
                       <option key={entry.code} value={entry.code}>
@@ -523,7 +582,7 @@ export default function SendPage() {
                       <select
                         value={recipientMobileProvider}
                         onChange={(e) => setRecipientMobileProvider(e.target.value)}
-                        className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
+                        className="w-full appearance-none bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
                       >
                         {selectedMobileMoneyOperators.map((operator) => (
                           <option key={operator.code} value={operator.code}>
@@ -576,20 +635,42 @@ export default function SendPage() {
               <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <input
-                    value={amountUsdInput}
-                    onChange={(e) => setAmountUsdInput(e.target.value)}
-                    className="w-36 bg-transparent text-4xl font-bold text-[var(--color-heading)] outline-none"
+                    value={amountUnit === "usd" ? amountUsdInput : amountSbtcInput}
+                    onChange={(e) => handleAmountInputChange(e.target.value)}
+                    className="min-w-0 flex-1 bg-transparent text-4xl font-bold text-[var(--color-heading)] outline-none"
                     inputMode="decimal"
                   />
                   <div className="h-fit rounded-full bg-[var(--color-border)] p-1 text-[10px] font-semibold text-[var(--color-text-muted)]">
-                    <span className="rounded-full bg-[var(--color-primary)] px-3 py-1 text-[#0f0f0f]">USD</span>
-                    <span className="px-3 py-1">sBTC</span>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1 ${amountUnit === "usd" ? "bg-[var(--color-primary)] text-[#0f0f0f]" : "text-[var(--color-text-muted)]"}`}
+                      onClick={() => handleAmountUnitChange("usd")}
+                    >
+                      USD
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1 ${amountUnit === "sbtc" ? "bg-[var(--color-primary)] text-[#0f0f0f]" : "text-[var(--color-text-muted)]"}`}
+                      onClick={() => handleAmountUnitChange("sbtc")}
+                    >
+                      sBTC
+                    </button>
                   </div>
                 </div>
               </div>
               <p className="mt-2 text-[11px] font-semibold text-[var(--color-primary)]">
                 {sendMaxLabel ? `Connected balance: ${sendMaxLabel}` : "Connect wallet to load balance"}
               </p>
+              {!enforceSbtcBalanceCheck && connectedBalanceSats === 0 ? (
+                <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                  Balance feed shows 0 sBTC. On local/mock testnet token setups, this can still be valid for testing.
+                </p>
+              ) : null}
+              {!hasEnoughSbtcBalance ? (
+                <p className="mt-1 text-[11px] font-medium text-[var(--color-danger-500)]">
+                  Amount exceeds connected sBTC balance.
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-7">
@@ -710,7 +791,7 @@ export default function SendPage() {
                 <span className="text-[var(--color-text-muted)]">You send</span>
                 <span className="font-semibold text-[var(--color-text)]">
                     ${amountUsd.toFixed(2)} /{" "}
-                    {usdToSbtcSatoshis(amountUsd, btcUsdPrice).toLocaleString()} sats
+                    {amountSatoshis.toLocaleString()} sats
                   </span>
               </div>
               <div className="flex items-center justify-between">
@@ -829,32 +910,6 @@ export default function SendPage() {
         </form>
       </div>
 
-      <footer className="bg-[var(--color-surface)] px-4 py-12 text-[var(--color-text)]">
-        <div className="mx-auto grid max-w-[1180px] gap-8 text-sm md:grid-cols-4">
-          <div>
-            <p className="mb-3 text-2xl font-bold text-[var(--color-heading)]">₿ BitExpress</p>
-            <p className="text-[var(--color-text-muted)]">Send money across Africa instantly with Bitcoin-powered remittance.</p>
-          </div>
-          <div>
-            <p className="mb-3 font-semibold text-[var(--color-heading)]">Product</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">How it Works</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">Pricing</p>
-            <p className="text-[var(--color-text-muted)]">Countries</p>
-          </div>
-          <div>
-            <p className="mb-3 font-semibold text-[var(--color-heading)]">Company</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">About</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">Blog</p>
-            <p className="text-[var(--color-text-muted)]">Careers</p>
-          </div>
-          <div>
-            <p className="mb-3 font-semibold text-[var(--color-heading)]">Support</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">Help Center</p>
-            <p className="mb-2 text-[var(--color-text-muted)]">Contact</p>
-            <p className="text-[var(--color-text-muted)]">FAQ</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -18,6 +18,18 @@ interface StacksTxLookup {
   };
 }
 
+function formatOnChainFailureMessage(status: string, txResult?: string): string {
+  if (!txResult) {
+    return `On-chain transaction failed (${status}).`;
+  }
+
+  if (txResult.includes("(err none)")) {
+    return "On-chain transaction failed: sBTC transfer into escrow was rejected (err none). This usually means insufficient sBTC balance, wrong network, or unsupported token setup for the connected wallet.";
+  }
+
+  return `On-chain transaction failed (${status}): ${txResult}`;
+}
+
 export function usdToSbtcSatoshis(amountUsd: number, btcUsdPrice: number): number {
   if (btcUsdPrice <= 0) return 0;
   return Math.round((amountUsd / btcUsdPrice) * 100_000_000);
@@ -265,9 +277,7 @@ export async function waitForStacksTxSuccess(
 
         if (status.startsWith("abort") || status.startsWith("failed")) {
           const txResult = data.tx_result?.repr;
-          const message = txResult
-            ? `On-chain transaction failed (${status}): ${txResult}`
-            : `On-chain transaction failed (${status}).`;
+          const message = formatOnChainFailureMessage(status, txResult);
 
           logClientError("stacks.tx.wait_failed", {
             txid: normalizedTxid,

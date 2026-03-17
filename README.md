@@ -170,6 +170,11 @@ Follow these steps to run a complete send→claim flow:
 - Two Stacks wallets loaded with testnet sBTC (Leather or Xverse)
 - Both backend and frontend running locally
 
+### Fund Test sBTC (mock token in this repo)
+1. Open Stacks explorer contract-call UI for your deployed `sbtc-token` contract.
+2. Call `faucet` once from each wallet.
+3. This mints test sBTC to the caller and makes balances visible as `<deployer>.sbtc-token::sbtc` in Hiro balance endpoints.
+
 ### Step 1 — Send (Sender wallet)
 1. Open `http://localhost:3000/send`
 2. Connect **Sender** wallet

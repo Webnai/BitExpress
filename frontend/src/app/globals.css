@@ -42,6 +42,27 @@ body {
   min-height: 100vh;
 }
 
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled {
+  cursor: not-allowed;
+}
+
+select,
+option,
+optgroup {
+  background-color: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
 .gradient-text {
   background: linear-gradient(135deg, #00d4aa, #00f0d4);
   -webkit-background-clip: text;
