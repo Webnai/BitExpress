@@ -18,6 +18,34 @@ dotenv.config();
 
 const app = express();
 
+function isAllowedOrigin(origin: string) {
+  const normalizedOrigin = origin.replace(/\/$/, "");
+
+  return CORS_ORIGINS.some((allowed) => {
+    if (allowed === normalizedOrigin) {
+      return true;
+    }
+
+    // Supports wildcard patterns like https://*.vercel.app
+    if (allowed.includes("*")) {
+      try {
+        const originUrl = new URL(normalizedOrigin);
+        const allowedUrl = new URL(allowed.replace("*", "placeholder"));
+        const allowedHostSuffix = allowedUrl.hostname.replace("placeholder", "");
+        const protocolMatches = originUrl.protocol === allowedUrl.protocol;
+        const hostMatches =
+          allowedHostSuffix.length > 0 &&
+          originUrl.hostname.endsWith(allowedHostSuffix);
+        return protocolMatches && hostMatches;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
+  });
+}
+
 // Security middleware
 app.use(helmet());
 app.use(
@@ -28,7 +56,7 @@ app.use(
         return;
       }
 
-      if (CORS_ORIGINS.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }
