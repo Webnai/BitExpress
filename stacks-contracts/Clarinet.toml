@@ -5,12 +5,12 @@ authors = []
 telemetry = true
 cache_dir = "./.cache"
 
-[contracts.remittance]
+[contracts.remittance-v2]
 path = "contracts/remittance.clar"
 clarity_version = 2
 epoch = "latest"
 
-[contracts.sbtc-token]
+[contracts.sbtc-token-v2]
 path = "contracts/sbtc-token.clar"
 clarity_version = 2
 epoch = "latest"

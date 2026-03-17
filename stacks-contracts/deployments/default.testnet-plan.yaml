@@ -8,14 +8,14 @@ plan:
   - id: 0
     transactions:
     - transaction-type: contract-publish
-      contract-name: sbtc-token
+      contract-name: sbtc-token-v2
       expected-sender: ST22XTWYXH14VK7SQYEAMKRKRS9BZ32QXJPQNZ7FN
       cost: 2620
       path: contracts/sbtc-token.clar
       anchor-block-only: true
       clarity-version: 2
     - transaction-type: contract-publish
-      contract-name: remittance
+      contract-name: remittance-v2
       expected-sender: ST22XTWYXH14VK7SQYEAMKRKRS9BZ32QXJPQNZ7FN
       cost: 117490
       path: contracts/remittance.clar

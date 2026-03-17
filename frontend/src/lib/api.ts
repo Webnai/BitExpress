@@ -9,7 +9,7 @@ const STACKS_CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 // Mainnet sBTC: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
 const SBTC_ASSET_IDENTIFIER =
-  process.env.NEXT_PUBLIC_SBTC_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.sbtc-token::sbtc`;
+  process.env.NEXT_PUBLIC_SBTC_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.sbtc-token-v2::sbtc`;
 
 function makeIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

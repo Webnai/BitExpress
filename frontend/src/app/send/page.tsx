@@ -132,6 +132,7 @@ export default function SendPage() {
   const [rates, setRates] = useState<ExchangeRateMap>({});
   const [countryMeta, setCountryMeta] = useState<CountryMetaMap>({});
   const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
+  const [sbtcAssetIdentifier, setSbtcAssetIdentifier] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<WalletHistoryRecipient[]>([]);
   const [transferResult, setTransferResult] = useState<{
     id: string;
@@ -177,6 +178,7 @@ export default function SendPage() {
     async function loadWalletData() {
       if (!address) {
         setSbtcBalance(null);
+        setSbtcAssetIdentifier(null);
         setRecentRecipients([]);
         return;
       }
@@ -190,11 +192,14 @@ export default function SendPage() {
 
       if (balanceResult.status === "fulfilled") {
         setSbtcBalance(balanceResult.value.balance);
+        setSbtcAssetIdentifier(balanceResult.value.assetIdentifier);
         logClientInfo("send.wallet_balance.loaded", {
           address,
+          assetIdentifier: balanceResult.value.assetIdentifier,
           balance: balanceResult.value.balance,
         });
       } else {
+        setSbtcAssetIdentifier(null);
         logClientError("send.wallet_balance.failed", {
           address,
           message: balanceResult.reason instanceof Error ? balanceResult.reason.message : "unknown",
@@ -273,6 +278,7 @@ export default function SendPage() {
   const recipientGetsLocal = recipientGetsUsd * localPerUsd;
   const connectedBalanceSbtc = sbtcBalance ? Number(sbtcBalance) / 100_000_000 : null;
   const connectedBalanceSats = sbtcBalance ? Number(sbtcBalance) : null;
+  const hasLoadedSbtcBalance = connectedBalanceSats !== null;
   const selectedFlagCountry = getFlagCountry(destCountry);
   const receiverWalletNormalized = receiverWallet.trim();
   const recipientNameNormalized = recipientName.trim();
@@ -287,9 +293,7 @@ export default function SendPage() {
   const isMobileOperatorValid =
     !requiresMobileOperator || selectedMobileMoneyOperators.some((operator) => operator.code === recipientMobileProvider);
   const isRecipientNameValid = recipientNameNormalized.length > 1;
-  const enforceSbtcBalanceCheck = connectedBalanceSats !== null && connectedBalanceSats > 0;
-  const hasEnoughSbtcBalance =
-    !enforceSbtcBalanceCheck || amountSatoshis <= connectedBalanceSats;
+  const hasEnoughSbtcBalance = !hasLoadedSbtcBalance || amountSatoshis <= connectedBalanceSats;
   const canSubmitForm =
     Boolean(address) &&
     isAmountValid &&
@@ -661,9 +665,9 @@ export default function SendPage() {
               <p className="mt-2 text-[11px] font-semibold text-[var(--color-primary)]">
                 {sendMaxLabel ? `Connected balance: ${sendMaxLabel}` : "Connect wallet to load balance"}
               </p>
-              {!enforceSbtcBalanceCheck && connectedBalanceSats === 0 ? (
+              {hasLoadedSbtcBalance && connectedBalanceSats === 0 ? (
                 <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                  Balance feed shows 0 sBTC. On local/mock testnet token setups, this can still be valid for testing.
+                  Connected wallet has 0 sBTC for {sbtcAssetIdentifier ?? "the configured asset"}. Fund this wallet or verify the configured token contract and network before retrying.
                 </p>
               ) : null}
               {!hasEnoughSbtcBalance ? (
