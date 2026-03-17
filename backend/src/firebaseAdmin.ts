@@ -8,36 +8,8 @@ interface ServiceAccountEnv {
   privateKey: string;
 }
 
-function normalizePrivateKey(privateKey: string): string {
-  return privateKey.replace(/\\n/g, "\n");
-}
-
-function getServiceAccountFromEnv(): ServiceAccountEnv | null {
-  const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!json) return null;
-
-  try {
-    const parsed = JSON.parse(json) as {
-      project_id?: string;
-      client_email?: string;
-      private_key?: string;
-    };
-    if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
-      return null;
-    }
-
-    return {
-      projectId: parsed.project_id,
-      clientEmail: parsed.client_email,
-      privateKey: normalizePrivateKey(parsed.private_key),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function isFirebaseAdminConfigured(): boolean {
-  return Boolean(getServiceAccountFromEnv()) || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT) || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
 }
 
 export function assertFirebaseAdminConfiguredInProduction(): void {
@@ -45,7 +17,7 @@ export function assertFirebaseAdminConfiguredInProduction(): void {
 
   if (!isFirebaseAdminConfigured()) {
     throw new Error(
-      "Firebase Admin is required in production. Set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON."
+      "Firebase Admin is required in production. Set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT."
     );
   }
 }
@@ -54,15 +26,10 @@ export function initializeFirebaseAdminIfNeeded(): boolean {
   if (!isFirebaseAdminConfigured()) return false;
 
   if (!getApps().length) {
-    const serviceAccount = getServiceAccountFromEnv();
-
-    if (serviceAccount) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!) as ServiceAccountEnv;
       initializeApp({
-        credential: cert({
-          projectId: serviceAccount.projectId,
-          clientEmail: serviceAccount.clientEmail,
-          privateKey: serviceAccount.privateKey,
-        }),
+        credential: cert(serviceAccount),
       });
     } else {
       initializeApp({ credential: applicationDefault() });
