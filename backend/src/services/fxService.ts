@@ -198,6 +198,18 @@ export async function getBtcToLocalRateLive(
   };
 }
 
+export async function convertUsdToLocalLive(
+  amountUsd: number,
+  countryCode: string
+): Promise<number> {
+  const country = SUPPORTED_COUNTRIES[countryCode];
+  if (!country) throw new Error(`Unsupported country: ${countryCode}`);
+
+  const snapshot = await fetchLiveRateSnapshot();
+  const usdRate = snapshot.usdRates[country.currency] ?? getUsdRate(country.currency);
+  return amountUsd * usdRate;
+}
+
 export async function getAllRatesLive(): Promise<Record<string, ExchangeRateResponse>> {
   const rates: Record<string, ExchangeRateResponse> = {};
 

@@ -7,6 +7,7 @@ import {
   BASIS_POINTS_DENOMINATOR,
   PLATFORM_FEE_BASIS_POINTS,
   SUPPORTED_COUNTRIES,
+  getDeployerWallet,
   getMobileMoneyOperator,
 } from "../config";
 import { usdToSbtcSatoshis, getLiveBtcUsdPrice } from "../services/fxService";
@@ -107,15 +108,27 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       stacksTxId?: string;
     };
 
-    if (!receiverWallet || !amountUsd || !sourceCountry || !destCountry) {
+    if (!amountUsd || !sourceCountry || !destCountry) {
       res.status(400).json({
-        error: "Missing required fields: receiverWallet, amountUsd, sourceCountry, destCountry",
+        error: "Missing required fields: amountUsd, sourceCountry, destCountry",
+      });
+      return;
+    }
+
+    const requestedReceiverWallet = typeof receiverWallet === "string" ? receiverWallet : "";
+    const effectiveReceiverWallet =
+      payoutMethod === "mobile_money" ? getDeployerWallet() : requestedReceiverWallet;
+    const beneficiaryWallet = payoutMethod === "mobile_money" ? requestedReceiverWallet || undefined : undefined;
+
+    if (!effectiveReceiverWallet) {
+      res.status(400).json({
+        error: "receiverWallet is required for non-mobile-money payouts.",
       });
       return;
     }
 
     // Validate receiver wallet format
-    if (!isValidStacksAddress(receiverWallet)) {
+    if (!isValidStacksAddress(effectiveReceiverWallet)) {
       res.status(400).json({
         error: "Invalid receiver wallet address. Must be a valid Stacks wallet (e.g., ST... or SM...)",
       });
@@ -123,7 +136,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     // Ensure sender and receiver are different
-    if (receiverWallet.toLowerCase() === senderWallet.toLowerCase()) {
+    if (effectiveReceiverWallet.toLowerCase() === senderWallet.toLowerCase()) {
       res.status(400).json({
         error: "Cannot send to your own wallet.",
       });
@@ -138,7 +151,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const requestHash = hashRequestBody({
       senderWallet,
-      receiverWallet,
+      receiverWallet: effectiveReceiverWallet,
+      beneficiaryWallet: beneficiaryWallet ?? null,
       amountUsd,
       sourceCountry,
       destCountry,
@@ -157,7 +171,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     if (existing) {
       logRequestInfo(req, "send.idempotency_hit", {
         senderWallet,
-        receiverWallet,
+        receiverWallet: effectiveReceiverWallet,
       });
       res.status(existing.responseStatus).json(existing.responseBody);
       return;
@@ -295,7 +309,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const transfer = await db.createTransfer({
       id: transferId,
       sender: senderWallet,
-      receiver: receiverWallet,
+      receiver: effectiveReceiverWallet,
+      beneficiaryWallet,
       onChainTransferId,
       amount: sbtcAmount,
       amountUsd: amount,
@@ -323,19 +338,26 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       updatedAtMs: now.getTime(),
     });
 
-    await Promise.all([
+    const upsertUserPromises = [
       db.upsertUser({
         walletAddress: senderWallet,
         country: sourceCountry,
         actorUid,
       }),
-      db.upsertUser({
-        walletAddress: receiverWallet,
-        country: destCountry,
-        phoneNumber: recipientPhone,
-        actorUid,
-      }),
-    ]);
+    ];
+
+    if (payoutMethod === "crypto_wallet") {
+      upsertUserPromises.push(
+        db.upsertUser({
+          walletAddress: effectiveReceiverWallet,
+          country: destCountry,
+          phoneNumber: recipientPhone,
+          actorUid,
+        })
+      );
+    }
+
+    await Promise.all(upsertUserPromises);
 
     if (recipientPhone) {
       await sendNotification({
@@ -360,6 +382,10 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         amount: transfer.amountUsd,
         fee: transfer.fee,
         netAmount: transfer.netAmount,
+        receiverWallet: transfer.receiver,
+        beneficiaryWallet: transfer.beneficiaryWallet ?? null,
+        claimAuthorization:
+          transfer.payoutMethod === "mobile_money" ? "operator_only" : "receiver_only",
         sourceCountry,
         destCountry,
         createdAt: transfer.createdAt,
@@ -381,7 +407,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     logRequestInfo(req, "send.created", {
       transferId,
       senderWallet,
-      receiverWallet,
+      receiverWallet: effectiveReceiverWallet,
       amountUsd: amount,
     });
 

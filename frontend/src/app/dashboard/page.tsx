@@ -26,7 +26,11 @@ import { createRefundRemittanceTx, getStacksTxExplorerUrl, waitForStacksTxSucces
 type WalletHistoryEntry = {
   id: string;
   direction: "sent" | "received";
-  counterpartyWallet: string;
+  counterpartyWallet: string | null;
+  isOperatorCustodied?: boolean;
+  claimAuthorization?: "operator_only" | "receiver_only";
+  onChainReceiverWallet?: string;
+  beneficiaryWallet?: string | null;
   counterpartyName?: string;
   amountUsd: number;
   fee: number;
@@ -92,9 +96,25 @@ function formatMethod(value: string) {
     .join(" ");
 }
 
+function formatClaimAuthorization(value?: "operator_only" | "receiver_only") {
+  if (value === "operator_only") return "Operator claim";
+  if (value === "receiver_only") return "Receiver claim";
+  return "-";
+}
+
 function shortValue(value: string) {
   if (value.length <= 14) return value;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function resolveDisplayCounterparty(row: WalletHistoryEntry) {
+  if (row.counterpartyWallet) {
+    return row.counterpartyName || shortValue(row.counterpartyWallet);
+  }
+  if (row.beneficiaryWallet) {
+    return row.counterpartyName || shortValue(row.beneficiaryWallet);
+  }
+  return row.counterpartyName || "Unknown";
 }
 
 function relativeTime(value: string) {
@@ -388,13 +408,14 @@ export default function DashboardPage() {
                       <TableHead className="text-[var(--color-text-muted)] font-semibold">Country</TableHead>
                       <TableHead className="text-[var(--color-text-muted)] font-semibold">Status</TableHead>
                       <TableHead className="text-[var(--color-text-muted)] font-semibold">Method</TableHead>
+                      <TableHead className="text-[var(--color-text-muted)] font-semibold">Claim Flow</TableHead>
                       <TableHead className="text-[var(--color-text-muted)] font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {recentTransactions.map((row) => {
                       const countryName = row.countryName || row.countryCode;
-                      const displayName = row.counterpartyName || shortValue(row.counterpartyWallet);
+                      const displayName = resolveDisplayCounterparty(row);
                       const badgeClass = STATUS_CLASS[row.status] || "bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]";
                       const isRefundable =
                         row.direction === "sent" &&
@@ -432,6 +453,7 @@ export default function DashboardPage() {
                             <Badge className={badgeClass}>{formatStatus(row.status)}</Badge>
                           </TableCell>
                           <TableCell className="text-[var(--color-text-muted)]">{formatMethod(row.payoutMethod)}</TableCell>
+                          <TableCell className="text-[var(--color-text-muted)]">{formatClaimAuthorization(row.claimAuthorization)}</TableCell>
                           <TableCell>
                             {isRefundable ? (
                               <button
@@ -561,7 +583,7 @@ export default function DashboardPage() {
                         }`}
                       />
                       <p className="text-xs font-medium text-[var(--color-text)]">
-                        {activity.direction === "sent" ? "Sent to" : "Received from"} {activity.counterpartyName || shortValue(activity.counterpartyWallet)}
+                        {activity.direction === "sent" ? "Sent to" : "Received from"} {resolveDisplayCounterparty(activity)}
                       </p>
                     </div>
                     <p className="mb-2 text-[11px] text-[var(--color-text-muted)]">{relativeTime(activity.createdAt)}</p>

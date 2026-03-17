@@ -13,6 +13,9 @@ import transactionRouter from "./routes/transaction";
 import exchangeRateRouter from "./routes/exchangeRate";
 import webhooksRouter from "./routes/webhooks";
 import { logError } from "./utils/logging";
+import { pollProcessingPayouts } from "./services/payoutPollingService";
+import { processFailedTransferRefunds } from "./services/refundService";
+import adminRouter from "./routes/admin";
 
 dotenv.config();
 
@@ -110,6 +113,7 @@ app.use("/api/claim", claimRouter);
 app.use("/api/transaction", transactionRouter);
 app.use("/api/exchange-rate", exchangeRateRouter);
 app.use("/api/webhooks", webhooksRouter);
+app.use("/api/admin", adminRouter);
 
 // 404 handler
 app.use((_req, res) => {
@@ -141,6 +145,24 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`BitExpress API running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
+
+  // Start polling for stuck payouts every 5 minutes
+  setInterval(() => {
+    pollProcessingPayouts().catch((error) => {
+      logError("polling_interval.error", {
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    });
+  }, 5 * 60 * 1000);
+
+  // Process failed transfer refunds every hour
+  setInterval(() => {
+    processFailedTransferRefunds().catch((error) => {
+      logError("refund_interval.error", {
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    });
+  }, 60 * 60 * 1000);
 }
 
 export default app;

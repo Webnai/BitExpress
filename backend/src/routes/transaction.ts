@@ -9,6 +9,20 @@ import { logRequestInfo } from "../utils/logging";
 
 const router = Router();
 
+function getCustodyMetadata(transfer: {
+  payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
+  receiver: string;
+  beneficiaryWallet?: string;
+}) {
+  const isOperatorCustodied = transfer.payoutMethod === "mobile_money";
+  return {
+    isOperatorCustodied,
+    claimAuthorization: isOperatorCustodied ? "operator_only" : "receiver_only",
+    onChainReceiverWallet: transfer.receiver,
+    beneficiaryWallet: transfer.beneficiaryWallet ?? null,
+  };
+}
+
 router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) => {
   const { address } = req.params;
   const authenticatedWallet = req.auth?.walletAddress;
@@ -26,9 +40,10 @@ router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) 
       .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((t) => ({
+        ...getCustodyMetadata(t),
         id: t.id,
         direction: "sent",
-        counterpartyWallet: t.receiver,
+        counterpartyWallet: t.payoutMethod === "mobile_money" ? t.beneficiaryWallet ?? null : t.receiver,
         counterpartyName: t.recipientName,
         amountUsd: t.amountUsd,
         fee: t.fee,
@@ -52,6 +67,7 @@ router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) 
       .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((t) => ({
+        ...getCustodyMetadata(t),
         id: t.id,
         direction: "received",
         counterpartyWallet: t.sender,
@@ -91,6 +107,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
   res.json({
     transaction: {
+      ...getCustodyMetadata(transfer),
       id: transfer.id,
       sender: transfer.sender,
       receiver: transfer.receiver,

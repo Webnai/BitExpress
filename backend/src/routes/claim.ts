@@ -1,10 +1,12 @@
 import { Router, Request, Response } from "express";
 
+import { getDeployerWallet } from "../config";
 import { db } from "../db";
 import { requireAuth } from "../middleware/auth";
-import { convertUsdToLocal } from "../services/fxService";
+import { convertUsdToLocal, convertUsdToLocalLive } from "../services/fxService";
 import { sendNotification } from "../services/notificationService";
 import { processPayout } from "../services/payoutService";
+import { processRefund } from "../services/refundService";
 import {
   getIdempotencyKey,
   getIdempotentResponse,
@@ -18,10 +20,10 @@ const router = Router();
 
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const receiverWallet = req.auth?.walletAddress;
+    const claimerWallet = req.auth?.walletAddress;
     const actorUid = req.auth?.uid;
 
-    if (!receiverWallet || !actorUid) {
+    if (!claimerWallet || !actorUid) {
       res.status(401).json({ error: "Missing authenticated wallet context." });
       return;
     }
@@ -47,7 +49,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     const requestHash = hashRequestBody({
       transferId,
-      receiverWallet,
+      claimerWallet,
       claimCode: claimCode ?? null,
       claimStacksTxId: claimStacksTxId ?? null,
     });
@@ -60,7 +62,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     if (existing) {
       logRequestInfo(req, "claim.idempotency_hit", {
         transferId,
-        receiverWallet,
+        claimerWallet,
       });
       res.status(existing.responseStatus).json(existing.responseBody);
       return;
@@ -79,7 +81,16 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    if (transfer.receiver !== receiverWallet) {
+    if (transfer.payoutMethod === "mobile_money") {
+      const deployerWallet = getDeployerWallet();
+
+      if (claimerWallet.toLowerCase() !== deployerWallet.toLowerCase()) {
+        res.status(403).json({
+          error: "Only the operator wallet can claim mobile-money transfers.",
+        });
+        return;
+      }
+    } else if (transfer.receiver !== claimerWallet) {
       res.status(403).json({ error: "Not authorized to claim this transfer" });
       return;
     }
@@ -112,7 +123,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
       const verification = await verifyClaimRemittanceTx({
         txId: claimStacksTxId,
-        receiverWallet,
+        receiverWallet: claimerWallet,
         expectedOnChainTransferId: transfer.onChainTransferId,
         expectedClaimSecretHex: claimCode,
       });
@@ -135,7 +146,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    const localAmount = convertUsdToLocal(transfer.netAmount, transfer.destCountry);
+    const localAmount = await convertUsdToLocalLive(transfer.netAmount, transfer.destCountry);
 
     const payoutResult = await processPayout(
       {
@@ -150,12 +161,19 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       localAmount
     );
 
-    if (!payoutResult.success) {
-      res.status(502).json({
-        error: "Payout failed",
-        details: payoutResult.message,
+    // If payout failed due to liquidity issues, initiate automatic refund
+    if (!payoutResult.success && payoutResult.payoutStatus === "failed") {
+      logRequestInfo(req, "claim.payout_failed_initiating_refund", {
+        transferId,
+        reason: payoutResult.message,
       });
-      return;
+
+      await processRefund({
+        transferId,
+        senderWallet: transfer.sender,
+        amount: transfer.amount,
+        reason: payoutResult.message,
+      });
     }
 
     const now = new Date();
@@ -164,7 +182,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       status: "claimed",
       claimedAt: now.toISOString(),
       claimStacksTxId,
-      mobileMoneyRef: payoutResult.reference,
+      mobileMoneyRef: payoutResult.reference || transfer.mobileMoneyRef || "",
       payoutProvider: payoutResult.provider,
       payoutStatus: payoutResult.payoutStatus,
       updatedAt: now.toISOString(),
@@ -172,13 +190,15 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       updatedByUid: actorUid,
     });
 
-    await db.upsertUser({
-      walletAddress: receiverWallet,
-      country: transfer.destCountry,
-      phoneNumber: transfer.recipientPhone,
-      kycStatus: "pending",
-      actorUid,
-    });
+    if (transfer.payoutMethod === "crypto_wallet") {
+      await db.upsertUser({
+        walletAddress: claimerWallet,
+        country: transfer.destCountry,
+        phoneNumber: transfer.recipientPhone,
+        kycStatus: "pending",
+        actorUid,
+      });
+    }
 
     await sendNotification({
       to: transfer.sender,
@@ -223,7 +243,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
     logRequestInfo(req, "claim.succeeded", {
       transferId,
-      receiverWallet,
+      claimerWallet,
       payoutReference: payoutResult.reference,
     });
 

@@ -156,6 +156,9 @@ export async function apiSend(payload: {
       amount: number;
       fee: number;
       netAmount: number;
+      receiverWallet: string;
+      beneficiaryWallet?: string | null;
+      claimAuthorization: "operator_only" | "receiver_only";
       sourceCountry: string;
       destCountry: string;
       createdAt: string;
@@ -206,6 +209,10 @@ export async function apiGetTransaction(id: string) {
       id: string;
       sender: string;
       receiver: string;
+      isOperatorCustodied?: boolean;
+      claimAuthorization?: "operator_only" | "receiver_only";
+      onChainReceiverWallet?: string;
+      beneficiaryWallet?: string | null;
       amountUsd: number;
       fee: number;
       netAmount: number;
@@ -234,7 +241,11 @@ export async function apiGetWalletHistory(address: string) {
     sent: Array<{
       id: string;
       direction: "sent";
-      counterpartyWallet: string;
+      counterpartyWallet: string | null;
+      isOperatorCustodied?: boolean;
+      claimAuthorization?: "operator_only" | "receiver_only";
+      onChainReceiverWallet?: string;
+      beneficiaryWallet?: string | null;
       counterpartyName?: string;
       amountUsd: number;
       fee: number;
@@ -258,7 +269,11 @@ export async function apiGetWalletHistory(address: string) {
     received: Array<{
       id: string;
       direction: "received";
-      counterpartyWallet: string;
+      counterpartyWallet: string | null;
+      isOperatorCustodied?: boolean;
+      claimAuthorization?: "operator_only" | "receiver_only";
+      onChainReceiverWallet?: string;
+      beneficiaryWallet?: string | null;
       counterpartyName?: string;
       amountUsd: number;
       fee: number;

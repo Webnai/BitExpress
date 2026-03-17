@@ -10,6 +10,9 @@ import {
   CINETPAY_TRANSFER_PASSWORD,
   PAYSTACK_BASE_URL,
   PAYSTACK_SECRET_KEY,
+  FLUTTERWAVE_BASE_URL,
+  FLUTTERWAVE_SECRET_KEY,
+  FLUTTERWAVE_NOTIFY_URL,
   SUPPORTED_COUNTRIES,
   getMobileMoneyOperator,
   type PayoutProvider,
@@ -123,6 +126,78 @@ function getSelectedOperator(request: PayoutRequest) {
     throw new Error("Select a supported mobile-money operator for this country.");
   }
   return operator;
+}
+
+async function checkPaystackLiquidity(countryCode: string, localAmount: number): Promise<boolean> {
+  if (!PAYSTACK_SECRET_KEY) return false;
+
+  try {
+    const paystack = axios.create({
+      baseURL: PAYSTACK_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
+
+    const response = await paystack.get("/balance");
+    const balance = response.data?.data?.available || 0;
+    
+    // Convert balance (in minor units) to actual amount
+    const balanceInUnits = balance / 100;
+    
+    return balanceInUnits >= localAmount;
+  } catch (error) {
+    // If we can't check, assume false (safe behavior)
+    return false;
+  }
+}
+
+async function checkCinetpayLiquidity(countryCode: string, localAmount: number): Promise<boolean> {
+  if (!CINETPAY_API_KEY || !CINETPAY_TRANSFER_PASSWORD) return false;
+
+  try {
+    const token = await getCinetToken();
+    const response = await axios.get(`${CINETPAY_BASE_URL}/v1/user/balance?token=${encodeURIComponent(token)}&lang=en`, {
+      timeout: 10000,
+    });
+
+    const balance = response.data?.data?.balance || 0;
+    return balance >= localAmount;
+  } catch (error) {
+    // If we can't check, assume false (safe behavior)
+    return false;
+  }
+}
+
+async function checkFlutterwaveLiquidity(countryCode: string, localAmount: number): Promise<boolean> {
+  if (!FLUTTERWAVE_SECRET_KEY) return false;
+
+  try {
+    const flutterwave = axios.create({
+      baseURL: FLUTTERWAVE_BASE_URL,
+      headers: {
+        Authorization: `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
+
+    const response = await flutterwave.get("/balances");
+    const balances = response.data?.data || [];
+    
+    // Find the balance for the country's currency
+    const country = SUPPORTED_COUNTRIES[countryCode];
+    const currencyBalance = balances.find((b: Record<string, unknown>) => 
+      b.currency === country?.currency
+    );
+
+    return (currencyBalance?.available_balance as number) >= localAmount;
+  } catch (error) {
+    // If we can't check, assume false (safe behavior)
+    return false;
+  }
 }
 
 async function processPaystackMobileMoneyPayout(
@@ -377,6 +452,95 @@ async function processCinetPayMobileMoneyPayout(
   };
 }
 
+async function processFlutterwaveMobileMoneyPayout(
+  request: PayoutRequest,
+  localAmount: number
+): Promise<PayoutResult> {
+  if (!FLUTTERWAVE_SECRET_KEY) {
+    throw new Error("FLUTTERWAVE_SECRET_KEY is not configured.");
+  }
+
+  const country = SUPPORTED_COUNTRIES[request.countryCode];
+  const operator = getSelectedOperator(request);
+  const phone = normalizeLocalPhoneNumber(request.countryCode, request.recipientPhone);
+  const reference = buildTransferReference("bxfw");
+
+  const flutterwave = axios.create({
+    baseURL: FLUTTERWAVE_BASE_URL,
+    headers: {
+      Authorization: `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15000,
+  });
+
+  try {
+    // Get bank/mobile money code from Flutterwave API
+    const banksResponse = await flutterwave.get("/banks", {
+      params: {
+        country: request.countryCode,
+        type: "mobile_money",
+      },
+    });
+
+    const banks = Array.isArray(banksResponse.data?.data) ? banksResponse.data.data : [];
+    let bankCode = operator.code;
+
+    const matched = banks.find((bank: Record<string, unknown>) => {
+      const code = String(bank.code ?? "").toUpperCase();
+      const name = String(bank.name ?? "").toUpperCase();
+      return code === operator.code.toUpperCase() || name.includes(operator.label.toUpperCase());
+    });
+
+    if (matched?.code) {
+      bankCode = String(matched.code);
+    }
+
+    // Initiate transfer via Flutterwave
+    const transferResponse = await flutterwave.post("/transfers", {
+      account_number: phone,
+      bank_code: bankCode,
+      amount: localAmount,
+      narration: `BitExpress payout ${request.transferId}`,
+      currency: country.currency,
+      reference,
+      callback_url: FLUTTERWAVE_NOTIFY_URL,
+    });
+
+    const transferStatus = transferResponse.data?.status;
+    const transferId = transferResponse.data?.data?.id;
+
+    if (!transferId) {
+      throw new Error("Flutterwave did not return a transfer ID.");
+    }
+
+    const payoutStatus =
+      transferStatus === "success"
+        ? "success"
+        : transferStatus === "failed"
+          ? "failed"
+          : "processing";
+
+    return {
+      success: payoutStatus !== "failed",
+      reference: String(transferId),
+      message:
+        payoutStatus === "success"
+          ? `Flutterwave delivered ${country.currency} ${localAmount.toFixed(2)} to ${request.recipientPhone}.`
+          : `Flutterwave accepted the payout and is processing it for ${request.recipientPhone}.`,
+      localAmount,
+      localCurrency: country.currency,
+      estimatedDelivery: buildEstimatedDelivery(10),
+      provider: "flutterwave",
+      payoutStatus,
+    };
+  } catch (error) {
+    throw new Error(
+      `Flutterwave payout failed: ${error instanceof Error ? error.message : "unknown error"}`
+    );
+  }
+}
+
 export async function processPayout(
   request: PayoutRequest,
   localAmount: number
@@ -427,7 +591,54 @@ export async function processPayout(
       }
 
       if (country.mobileMoneyProvider === "paystack") {
+        // Check liquidity before processing
+        const paystackHasLiquidity = await checkPaystackLiquidity(request.countryCode, localAmount);
+        if (!paystackHasLiquidity) {
+          return {
+            success: false,
+            reference: "",
+            message: `Paystack does not have sufficient liquidity for ${country.currency} payouts at this moment. Please try again in a few minutes.`,
+            localAmount: 0,
+            localCurrency: country.currency,
+            estimatedDelivery: "",
+            provider: "paystack",
+            payoutStatus: "failed",
+          };
+        }
         return processPaystackMobileMoneyPayout(request, localAmount);
+      }
+
+      // Check CinetPay liquidity
+      const cinetpayHasLiquidity = await checkCinetpayLiquidity(request.countryCode, localAmount);
+      if (!cinetpayHasLiquidity) {
+        return {
+          success: false,
+          reference: "",
+          message: `CinetPay does not have sufficient liquidity for ${country.currency} payouts at this moment. Please try again in a few minutes.`,
+          localAmount: 0,
+          localCurrency: country.currency,
+          estimatedDelivery: "",
+          provider: "cinetpay",
+          payoutStatus: "failed",
+        };
+      }
+
+      if (country.mobileMoneyProvider === "flutterwave") {
+        // Check Flutterwave liquidity
+        const flutterwaveHasLiquidity = await checkFlutterwaveLiquidity(request.countryCode, localAmount);
+        if (!flutterwaveHasLiquidity) {
+          return {
+            success: false,
+            reference: "",
+            message: `Flutterwave does not have sufficient liquidity for ${country.currency} payouts at this moment. Please try again in a few minutes.`,
+            localAmount: 0,
+            localCurrency: country.currency,
+            estimatedDelivery: "",
+            provider: "flutterwave",
+            payoutStatus: "failed",
+          };
+        }
+        return processFlutterwaveMobileMoneyPayout(request, localAmount);
       }
 
       return processCinetPayMobileMoneyPayout(request, localAmount);

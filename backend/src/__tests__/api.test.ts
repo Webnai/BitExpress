@@ -1,5 +1,6 @@
 import request from "supertest";
 
+import { getDeployerWallet } from "../config";
 import { assertFirestoreConfigForProduction } from "../db";
 import app from "../index";
 
@@ -72,6 +73,8 @@ describe("BitExpress API", () => {
       expect(res.body.transfer.status).toBe("pending");
       expect(res.body.transfer.fee).toBeCloseTo(0.2, 5);
       expect(res.body.transfer.netAmount).toBeCloseTo(19.8, 5);
+      expect(res.body.transfer.receiverWallet).toBe(getDeployerWallet());
+      expect(res.body.transfer.claimAuthorization).toBe("operator_only");
     });
 
     it("returns same response for same idempotency key", async () => {
@@ -112,7 +115,7 @@ describe("BitExpress API", () => {
           receiverWallet: "SP2DEF...RECEIVER",
           amountUsd: 20,
           sourceCountry: "GHA",
-          destCountry: "NGA",
+          destCountry: "TZA",
           recipientPhone: "+2348012345678",
           recipientName: "John Doe",
           recipientMobileProvider: "MTN",
@@ -152,6 +155,8 @@ describe("BitExpress API", () => {
       expect(res.body.transaction.id).toBe(transferId);
       expect(res.body.transaction.status).toBe("pending");
       expect(res.body.transaction.sourceCountry.code).toBe("KEN");
+      expect(res.body.transaction.claimAuthorization).toBe("operator_only");
+      expect(res.body.transaction.isOperatorCustodied).toBe(true);
     });
 
     it("requires auth for claim", async () => {
@@ -166,7 +171,7 @@ describe("BitExpress API", () => {
     it("claims a transfer with authenticated receiver", async () => {
       const res = await request(app)
         .post("/api/claim")
-        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Authorization", authHeader(getDeployerWallet()))
         .set("Idempotency-Key", "claim-success-1")
         .send({ transferId });
 
@@ -180,13 +185,13 @@ describe("BitExpress API", () => {
     it("returns same response for same claim idempotency key", async () => {
       const first = await request(app)
         .post("/api/claim")
-        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Authorization", authHeader(getDeployerWallet()))
         .set("Idempotency-Key", "claim-idem-1")
         .send({ transferId });
 
       const second = await request(app)
         .post("/api/claim")
-        .set("Authorization", authHeader("SP2RECEIVER"))
+        .set("Authorization", authHeader(getDeployerWallet()))
         .set("Idempotency-Key", "claim-idem-1")
         .send({ transferId });
 
@@ -224,6 +229,38 @@ describe("BitExpress API", () => {
       expect(res.status).toBe(200);
       expect(res.body.sent).toBeInstanceOf(Array);
       expect(res.body.received).toBeInstanceOf(Array);
+    });
+  });
+
+  describe("crypto wallet claim flow", () => {
+    const senderWallet = "SP12345678901234567890123456789012345678";
+    const receiverWallet = "SP98765432109876543210987654321098765432";
+
+    it("allows direct receiver claim for crypto wallet payouts", async () => {
+      const sendRes = await request(app)
+        .post("/api/send")
+        .set("Authorization", authHeader(senderWallet))
+        .set("Idempotency-Key", `send-crypto-${Date.now()}`)
+        .send({
+          receiverWallet,
+          amountUsd: 15,
+          sourceCountry: "GHA",
+          destCountry: "KEN",
+          payoutMethod: "crypto_wallet",
+        });
+
+      expect(sendRes.status).toBe(201);
+      expect(sendRes.body.transfer.receiverWallet).toBe(receiverWallet);
+      expect(sendRes.body.transfer.claimAuthorization).toBe("receiver_only");
+
+      const claimRes = await request(app)
+        .post("/api/claim")
+        .set("Authorization", authHeader(receiverWallet))
+        .set("Idempotency-Key", `claim-crypto-${Date.now()}`)
+        .send({ transferId: sendRes.body.transfer.id });
+
+      expect(claimRes.status).toBe(200);
+      expect(claimRes.body.transfer.status).toBe("claimed");
     });
   });
 

@@ -56,7 +56,7 @@ export const SUPPORTED_COUNTRIES: Country[] = [
     name: "Nigeria",
     currency: "NGN",
     currencySymbol: "₦",
-    mobileMoney: "No live mobile-money payout rail",
+    mobileMoney: "MTN, Airtel, Glo, 9mobile",
     flag: "🇳🇬",
   },
   {

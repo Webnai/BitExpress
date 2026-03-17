@@ -18,6 +18,7 @@ export interface Transfer extends AuditFields {
   id: string;
   sender: string;
   receiver: string;
+  beneficiaryWallet?: string;
   onChainTransferId?: number;
   amount: number; // in sBTC satoshis (8 decimals, 1 BTC = 100,000,000 sats)
   amountUsd: number;
@@ -30,7 +31,7 @@ export interface Transfer extends AuditFields {
   recipientName?: string;
   recipientMobileProvider?: string;
   payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
-  payoutProvider?: "paystack" | "cinetpay" | "stacks";
+  payoutProvider?: "paystack" | "cinetpay" | "flutterwave" | "stacks";
   payoutStatus?: "not_started" | "processing" | "success" | "failed";
   claimCodeHash?: string;
   stacksTxId?: string;
@@ -355,11 +356,15 @@ class FirestoreDatabase implements DatabaseAdapter {
         updatedAtMs: nowMs,
         updatedByUid: input.actorUid,
       };
+      const payload = {
+        ...updated,
+        updatedAtServer: FieldValue.serverTimestamp(),
+      } as Record<string, unknown>;
+      if (payload.phoneNumber === undefined) {
+        delete payload.phoneNumber;
+      }
       await ref.set(
-        {
-          ...updated,
-          updatedAtServer: FieldValue.serverTimestamp(),
-        },
+        payload,
         { merge: true }
       );
       return updated;
@@ -379,11 +384,16 @@ class FirestoreDatabase implements DatabaseAdapter {
       updatedAtMs: nowMs,
     };
 
-    await ref.set({
+    const payload = {
       ...user,
       createdAtServer: FieldValue.serverTimestamp(),
       updatedAtServer: FieldValue.serverTimestamp(),
-    });
+    } as Record<string, unknown>;
+    if (payload.phoneNumber === undefined) {
+      delete payload.phoneNumber;
+    }
+
+    await ref.set(payload);
     return user;
   }
 

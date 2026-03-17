@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export type PayoutProvider = "paystack" | "cinetpay" | "stacks";
+export type PayoutProvider = "paystack" | "cinetpay" | "flutterwave" | "stacks";
 
 export interface MobileMoneyOperator {
   code: string;
@@ -49,14 +49,20 @@ export const SUPPORTED_COUNTRIES: Record<string, CountryConfig> = {
     name: "Nigeria",
     currency: "NGN",
     currencySymbol: "₦",
-    mobileMoney: "No supported live mobile-money payout rail",
-    mobileMoneyCode: "UNSUPPORTED",
+    mobileMoney: "MTN, Airtel, Glo, 9mobile",
+    mobileMoneyCode: "FLUTTERWAVE_NGN",
     flag: "🇳🇬",
     dialCode: "234",
     nationalNumberLength: 11,
     nationalPrefix: "0",
-    supportsMobileMoneyPayout: false,
-    mobileMoneyOperators: [],
+    supportsMobileMoneyPayout: true,
+    mobileMoneyProvider: "flutterwave",
+    mobileMoneyOperators: [
+      { code: "MTN", label: "MTN Mobile Money", provider: "flutterwave" },
+      { code: "AIRTEL", label: "Airtel Money", provider: "flutterwave" },
+      { code: "GLO", label: "Glo Money", provider: "flutterwave" },
+      { code: "9MOBILE", label: "9Mobile Money", provider: "flutterwave" },
+    ],
   },
   KEN: {
     name: "Kenya",
@@ -160,6 +166,24 @@ export const CONTRACT_ADDRESS =
   process.env.CONTRACT_ADDRESS || "ST000000000000000000002AMW42H";
 export const CONTRACT_NAME = process.env.CONTRACT_NAME || "remittance-v4";
 
+function isValidStacksAddress(address: string): boolean {
+  return /^S[PTMN][A-Z0-9]{38,42}$/.test(address.trim().toUpperCase());
+}
+
+export function getDeployerWallet(): string {
+  const configured =
+    process.env.DEPLOYER_WALLET || process.env.CONTRACT_OWNER_WALLET || CONTRACT_ADDRESS;
+  const normalized = configured.trim().toUpperCase();
+
+  if (!isValidStacksAddress(normalized)) {
+    throw new Error(
+      "Invalid DEPLOYER_WALLET (or CONTRACT_OWNER_WALLET). It must be a valid Stacks wallet address."
+    );
+  }
+
+  return normalized;
+}
+
 // API configuration
 export const PORT = parseInt(process.env.PORT || "4000", 10);
 export const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:3000")
@@ -180,6 +204,12 @@ export const CINETPAY_NOTIFY_URL =
   process.env.CINETPAY_NOTIFY_URL || `${APP_BASE_URL}/api/webhooks/cinetpay/transfer`;
 export const CINETPAY_LANG = process.env.CINETPAY_LANG || "en";
 export const CINETPAY_WEBHOOK_SECRET = process.env.CINETPAY_WEBHOOK_SECRET || "";
+
+export const FLUTTERWAVE_BASE_URL = process.env.FLUTTERWAVE_BASE_URL || "https://api.flutterwave.com/v3";
+export const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY || "";
+export const FLUTTERWAVE_WEBHOOK_SECRET = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "";
+export const FLUTTERWAVE_NOTIFY_URL =
+  process.env.FLUTTERWAVE_NOTIFY_URL || `${APP_BASE_URL}/api/webhooks/flutterwave/transfer`;
 
 // Firestore configuration
 // Set USE_FIRESTORE=true to force Firestore mode.

@@ -15,6 +15,10 @@ interface TrackedTransaction {
   status: string;
   sender: string;
   receiver: string;
+  isOperatorCustodied?: boolean;
+  claimAuthorization?: "operator_only" | "receiver_only";
+  onChainReceiverWallet?: string;
+  beneficiaryWallet?: string | null;
   amountUsd: number;
   fee: number;
   sourceCountry: { code: string; name?: string };
@@ -58,6 +62,12 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-sm font-semibold text-[var(--color-heading)] text-right break-all max-w-[60%]">{value}</span>
     </div>
   );
+}
+
+function formatClaimFlow(flow?: "operator_only" | "receiver_only") {
+  if (flow === "operator_only") return "Operator claims on-chain, beneficiary receives fiat payout";
+  if (flow === "receiver_only") return "Receiver claims directly on-chain";
+  return "-";
 }
 
 export default function TrackPage() {
@@ -170,10 +180,16 @@ export default function TrackPage() {
               />
               <Row
                 label="To"
-                value={`${transaction.recipientName ?? transaction.receiver} • ${transaction.destCountry.name ?? transaction.destCountry.code}`}
+                value={`${transaction.recipientName ?? transaction.beneficiaryWallet ?? transaction.receiver} • ${transaction.destCountry.name ?? transaction.destCountry.code}`}
               />
               {transaction.payoutMethod && (
                 <Row label="Payout Method" value={transaction.payoutMethod.replace(/_/g, " ")} />
+              )}
+              {transaction.claimAuthorization && (
+                <Row label="Claim Flow" value={formatClaimFlow(transaction.claimAuthorization)} />
+              )}
+              {transaction.onChainReceiverWallet && (
+                <Row label="On-chain Receiver" value={transaction.onChainReceiverWallet} />
               )}
               {transaction.claimedAt && (
                 <Row
@@ -193,7 +209,7 @@ export default function TrackPage() {
 
             {/* Actions */}
             <div className="flex flex-col gap-2">
-              {transaction.status === "pending" && (
+              {transaction.status === "pending" && transaction.claimAuthorization !== "operator_only" && (
                 <Button
                   className="w-full"
                   onClick={() => router.push(`/receive?id=${transaction.id}`)}
@@ -201,6 +217,11 @@ export default function TrackPage() {
                   Claim Funds
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
+              )}
+              {transaction.status === "pending" && transaction.claimAuthorization === "operator_only" && (
+                <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-center text-xs text-[var(--color-text-muted)]">
+                  This transfer is operator-custodied and will be claimed by BitExpress before payout.
+                </p>
               )}
               {transaction.stacksTxId && (
                 <a
