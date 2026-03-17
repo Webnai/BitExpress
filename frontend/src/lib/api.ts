@@ -1,6 +1,6 @@
 import { getFirebaseIdToken } from "@/lib/firebaseAuth";
 import { logClientError, logClientInfo } from "@/lib/debug";
-import { API_BASE_URL } from "@/types";
+import { API_BASE_URL_NORMALIZED } from "@/types";
 
 const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
 const STACKS_TESTNET_API_BASE_URL =
@@ -82,7 +82,7 @@ async function apiFetch<T>(
   });
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${API_BASE_URL_NORMALIZED}${path}`, {
       method,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,

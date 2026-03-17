@@ -4,7 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 
-import { PORT, CORS_ORIGIN } from "./config";
+import { PORT, CORS_ORIGINS } from "./config";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import authRouter from "./routes/auth";
 import sendRouter from "./routes/send";
@@ -22,7 +22,19 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: CORS_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (CORS_ORIGINS.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
   })

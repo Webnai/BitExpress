@@ -162,7 +162,10 @@ export const CONTRACT_NAME = "remittance";
 
 // API configuration
 export const PORT = parseInt(process.env.PORT || "4000", 10);
-export const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
+export const CORS_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 export const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:4000";
 
 export const PAYSTACK_BASE_URL = process.env.PAYSTACK_BASE_URL || "https://api.paystack.co";
