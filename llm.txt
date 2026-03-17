@@ -1,0 +1,326 @@
+# Stacks Blockchain Developer Context for AI Models
+
+## Overview
+
+Stacks is a layer 2 blockchain that brings smart contracts and decentralized applications to Bitcoin. It uses Proof of Transfer (PoX) to achieve Bitcoin finality while enabling fast, low-cost transactions with Clarity smart contracts.
+
+## Key Technologies
+
+### Clarity Smart Contract Language
+- Purpose: Secure smart contract language designed for Bitcoin layer 2
+- Syntax: Lisp-like syntax with functional programming paradigm
+- Immutability: Guarantees contracts are immutable once deployed
+- Static Analysis: Supports formal verification and property-based testing
+- Type System: Strong typing with no type coercion
+- File Extension: `.clar`
+
+### Clarinet Development Framework
+- Primary tool for Clarity smart contract development
+- Features:
+  - Local blockchain (devnet) for testing
+  - REPL (Read-Eval-Print Loop) for interactive development
+  - Unit testing with Clarinet SDK (TypeScript/JavaScript)
+  - Contract deployment and simulation
+  - VSCode extension with linting and debugging
+- Installation: `npm install -g @stacks/clarinet` or `brew install clarinet`
+- Documentation: https://docs.stacks.co/clarinet
+
+### Rendezvous Fuzzer
+- Purpose: Property-based testing and fuzzing for Clarity contracts
+- Features:
+  - Stateful randomized testing
+  - Property-based test generation
+  - Invariant testing
+  - Automatic test execution and shrinking
+- Test Functions:
+  - Property tests: Start with `test-`, must be `public`, return `(ok true)` on success
+  - Invariant tests: Start with `invariant-`, must be `read-only`, return `boolean`
+- Installation: `npm install @stacks/rendezvous`
+- Documentation: https://docs.stacks.co/rendezvous/overview
+- Running Tests: `npx rv <project-path> <contract-name> test`
+
+## Stacks Network Information
+
+### Testnets
+- **Testnet**: Primary public test network
+  - ChainID: 0x80000001 (testnet magic bytes)
+  - Used for: Pre-mainnet testing before deployment
+  - Faucet: Available at https://faucet.stacks.co/
+  
+- **Devnet**: Local development network
+  - Run with: `clarinet integrate` (starts local blockchain)
+  - Default: 10 wallets with prefunded STX
+  - Block time: Configurable (default ~10 min blocktime simulation)
+
+### Mainnet
+- **Production**: Live Stacks blockchain
+- Bitcoin Settlement: All transactions settle to Bitcoin finality via PoX
+- Native Token: STX (Stacks Token)
+
+## Core Concepts
+
+### PoX (Proof of Transfer)
+- Consensus mechanism securing Stacks to Bitcoin
+- Miners bid STX to mine blocks, earning Bitcoin rewards
+- Stackers lock STX to participate, earn Bitcoin rewards
+- Bitcoin-backed security: Stacks cannot be forked without forking Bitcoin
+
+### sBTC
+- Wrapped Bitcoin on Stacks
+- Implements SIP-010 (Fungible Token standard)
+- Typically deployed as `.sbtc-token` contract
+- Decimals: 8 (same as Bitcoin satoshis, 100,000,000 units = 1 BTC)
+
+### Transactions
+- Contract Calls: Invoke public functions in smart contracts
+- Token Transfers: Send STX or SIP-010 tokens
+- Sponsored Transactions: Backend pays fees on behalf of end users
+- Microblocks: Fast block production before anchoring to Bitcoin
+
+## Clarity Language Fundamentals
+
+### Data Types
+- `uint`: Unsigned 128-bit integers
+- `int`: Signed 128-bit integers  
+- `principal`: Account address (STX wallet)
+- `(string-ascii N)`: ASCII string up to N characters
+- `(string-utf8 N)`: UTF-8 string up to N bytes
+- `(buff N)`: Byte buffer up to N bytes
+- `bool`: True/false
+- `(optional T)`: Nullable type wrapper
+- `(list N T)`: Ordered collection of up to N elements of type T
+- `(tuple (field1 T1) (field2 T2) ...)`: Struct-like object
+
+### Control Flow
+- `if`: Conditional execution
+- `let`: Variable binding and scope
+- `match`: Pattern matching
+- `try!`: Error propagation (early exit on error)
+- `asserts!`: Assertion (error if condition false)
+
+### Contract Definitions
+- `define-constant`: Immutable value (evaluates at parse time)
+- `define-variable`: Mutable state (with explicit var-set)
+- `define-map`: Key-value store (persistent contract storage)
+- `define-public`: Public function (state-changing, can be called externally)
+- `define-read-only`: Query function (no state change, free to call)
+- `define-private`: Internal function (not callable externally)
+
+### Common Patterns
+- `(unwrap! (map-get? map { key: value }) error)`: Safely retrieve from map or fail
+- `(default-to default-value optional-value)`: Provide default for optional
+- `(contract-call? contract function arg1 arg2)`: Call another contract
+- `(as-contract tx-sender)`: Execute as contract principal (for escrow)
+
+## Development Workflow
+
+### 1. Project Setup
+```bash
+clarinet new my-project
+cd my-project
+```
+
+### 2. Write a Contract
+```clarinet
+# contracts/hello.clar
+(define-public (say-hello (name (string-ascii 50)))
+  (ok (concat "Hello, " name))
+)
+```
+
+### 3. Write Tests
+```typescript
+// tests/hello.test.ts
+import { describe, it, expect } from 'vitest';
+import { Clarinet, Tx, types } from '@stacks/clarinet-sdk';
+
+describe('hello', () => {
+  it('says hello', () => {
+    const { result } = simnet.callPublicFn('hello', 'say-hello', ['Alice']);
+    expect(result.expectOk()).toBe('(concat "Hello, " "Alice")');
+  });
+});
+```
+
+### 4. Property-Based Tests (Rendezvous)
+```clarity
+;; contracts/hello.tests.clar
+(define-public (test-hello-not-empty (name (string-ascii 50)))
+  (let ((result (say-hello name)))
+    (asserts! (< u0 (len (unwrap-panic result))) (err u1))
+    (ok true)
+  )
+)
+```
+
+### 5. Run Tests
+```bash
+npm run test              # Clarinet SDK tests (Vitest)
+npm run test:rendezvous  # Rendezvouz fuzzing
+```
+
+## Common Patterns & Anti-Patterns
+
+### Safe Patterns
+- ✓ Use `try!` for error propagation in contract calls
+- ✓ Use `asserts!` to validate preconditions
+- ✓ Store sender as `tx-sender` at transaction time (immutable reference)
+- ✓ Use `as-contract` for escrow/multi-step transactions
+- ✓ Validate all user inputs before state changes
+- ✓ Use maps for flexible storage (dynamic keys)
+- ✓ Check authorization with `asserts! (is-eq tx-sender expected-user)`
+
+### Dangerous Patterns
+- ✗ Trusting user-supplied principals without verification
+- ✗ Dividing before multiplying (loss of precision)
+- ✗ Leaving contract balances unsafe (use escrow for transfers)
+- ✗ Assuming caller is a specific type (could be contract)
+- ✗ Complex nested logic without intermediate assertions
+- ✗ Unsigned math without bounds checking
+
+## SIP Standards
+
+### SIP-009: Fungible Token
+- Standard for token contracts
+- Required functions: `transfer`, `get-balance`, `get-total-supply`
+- Used by: sBTC, custom tokens
+- Implementation: Define public contract interface
+
+### SIP-010: Fungible Token (Updated)
+- Enhanced version of SIP-009
+- Added: `mint`, `burn`, optional memo support
+- Widely adopted in ecosystem
+
+### SIP-003: Proof of Transfer (PoX)
+- Core consensus mechanism
+- Specifies reward distribution
+- Stackers earn Bitcoin through PoX smart contract
+
+## Testing Best Practices
+
+### Unit Testing (Clarinet SDK)
+- Test happy path and error cases
+- Verify state changes are correct
+- Use `expect()` assertions
+- Mock dependencies when needed
+- Cover edge cases (zero, max, min values)
+
+### Property-Based Testing (Rendezvous)
+- Define universal properties as Clarity functions
+- Fuzz test with random inputs (50-100+ runs)
+- Verify invariants hold across state changes
+- Check post-conditions after operations
+- Use `invariant-` functions for always-true conditions
+
+### Property Examples
+- Fee calculations: `amount - fee = net_amount`
+- Balance conservation: `transferred_amount <= available_balance`
+- State consistency: `total = sum_of_parts`
+- Monotonicity: timestamp values always increase
+
+## Deployment
+
+### Testnet Deployment
+```bash
+clarinet deployment generate --testnet
+# Then sign and broadcast with wallet
+```
+
+### Mainnet Deployment
+- Execute testnet deployment first
+- Verify contract behavior in testnet thoroughly
+- Deploy with mainnet wallet
+- Monitor transaction until finality (6+ Bitcoin blocks)
+
+## Common Error Codes
+
+### Contract Execution Errors
+- `u100`: Not authorized (invalid principal/sender)
+- `u101`: Invalid amount (negative, out of bounds)
+- `u102`: Item not found (map-get? returned none)
+- `u103`: Already processed (idempotency check failed)
+- `u104`: Already claimed/refunded
+- `u200`: Contract call failed (called contract returned error)
+
+## Resources
+
+### Documentation
+- **Official Docs**: https://docs.stacks.co
+- **Clarity Reference**: https://docs.stacks.co/reference/clarity-language
+- **Clarinet Tutorial**: https://docs.stacks.co/clarinet/quickstart
+- **Rendezvous Docs**: https://docs.stacks.co/rendezvous/overview
+
+### Communities
+- **Discord**: https://stacks.chat/ (Developer Tools channel)
+- **Forum**: https://forum.stacks.org/
+- **Twitter**: https://x.com/StacksDevs
+
+### Tools
+- **Clarinet**: https://github.com/stx-labs/clarinet
+- **Rendezvous**: https://github.com/stacks-network/rendezvous
+- **Stacks.js**: https://github.com/hirosystems/stacks.js
+- **Explorer**: https://testnet.blockstack.org (testnet)
+
+## Stacks.js SDK
+
+### Key Packages
+- `@stacks/transactions`: Create and sign transactions
+- `@stacks/network`: Network settings and RPC endpoints
+- `@stacks/connect`: Wallet connection (authentication)
+- `@stacks/encryption`: Encryption utilities
+- `@stacks/auth`: Authentication flows
+
+### Common Usage
+```javascript
+import { buildContractCallPayload } from '@stacks/transactions';
+import { StacksTestnet } from '@stacks/network';
+
+// Call a contract function
+const tx = await buildContractCallPayload({
+  contractAddress: 'ST...',
+  contractName: 'hello',
+  functionName: 'say-hello',
+  functionArgs: [stringAsciiCV('Alice')],
+  network: new StacksTestnet(),
+  senderAddress: userAddress,
+});
+```
+
+## BitExpress Specific Context
+
+### Architecture
+- **Contracts**: Clarity smart contracts in `stacks-contracts/`
+- **Backend**: Express.js + TypeScript in `backend/`
+- **Frontend**: Next.js + React in `frontend/`
+- **Testing**: Jest (backend), Vitest (contracts), Rendezvous (fuzzing)
+
+### Main Contract: Remittance
+- Function: `send-remittance` - Initiate cross-border payment
+- Function: `claim-remittance` - Recipient claims payment
+- Function: `refund-remittance` - Sender recovers expired transfer
+- Fee: 1% (100 basis points) of transfer amount
+- Timeout: 144 Stacks blocks (~24 hours)
+- Limits: 1,000 satoshis (minimum) to 200,000,000 satoshis (maximum)
+
+### sBTC Token Standard
+- Contract: `.sbtc-token-v3` (SIP-010 compliant)
+- Used for: Transfer escrow and settlement
+- Decimals: 8 (1 BTC = 100,000,000 units)
+
+## AI Model Guidelines
+
+When working with Stacks projects:
+1. **Always verify Clarity syntax** - different from JavaScript/Python
+2. **Check function visibility** - public vs read-only vs private
+3. **Validate type safety** - Clarity enforces strict typing
+4. **Test properties thoroughly** - Use Rendezvous for edge cases
+5. **Consider state consistency** - Maps and variables are persistent
+6. **Plan for Bitcoin finality** - Transactions settle to Bitcoin
+7. **Handle errors explicitly** - No implicit null coercion
+8. **Document post-conditions** - Required for formal verification
+
+---
+
+**Last Updated**: March 17, 2026
+**Version**: 1.0
+**Scope**: Stacks blockchain ecosystem overview

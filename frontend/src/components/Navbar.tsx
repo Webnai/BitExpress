@@ -85,7 +85,6 @@ export default function Navbar() {
   const desktopLinkClass = isLandingPage
     ? "text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
     : "text-[#5f6f88] hover:text-[#132a52]";
-  const mobileTextClass = isLandingPage ? "text-[var(--color-text-muted)]" : "text-[#5f6f88]";
 
   const visibleNavItems = connected ? [...PUBLIC_NAV, ...PROTECTED_NAV] : [];
 

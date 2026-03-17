@@ -161,19 +161,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { connect, getSelectedProviderId, request, disconnect } = await loadStacksConnect();
+      const { connect, request } = await loadStacksConnect();
       const result = await connect({
         network: STACKS_NETWORK,
-        forceWalletSelect: true,
-        persistWalletSelect: true,
+        wallet: "leather",
         enableLocalStorage: true,
       });
-
-      const selectedProviderId = getSelectedProviderId();
-      if (!walletNameFromProviderId(selectedProviderId)) {
-        disconnect();
-        throw new Error("Only the Leather wallet is supported. Please select Leather to continue.");
-      }
 
       const connectedEntry = pickAddressEntry(result.addresses);
       const connectedAddress = connectedEntry?.address ?? null;

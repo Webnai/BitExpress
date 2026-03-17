@@ -10,6 +10,11 @@ path = "contracts/remittance.clar"
 clarity_version = 2
 epoch = "2.4"
 
+[contracts.remittance-v4]
+path = "contracts/remittance-v4.clar"
+clarity_version = 2
+epoch = "2.4"
+
 [contracts.sbtc-token-v3]
 path = "contracts/sbtc-token.clar"
 clarity_version = 2

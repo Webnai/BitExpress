@@ -20,6 +20,59 @@ import {
 import { logRequestError, logRequestInfo } from "../utils/logging";
 import { verifySendRemittanceTx } from "../services/stacksVerificationService";
 
+// Helper to validate Stacks wallet address format
+function isValidStacksAddress(address: string): boolean {
+  // Stacks addresses start with ST or SM (testnet) or S[PTM] (mainnet)
+  return /^S[PTMN][A-Z0-9]{38,42}$/.test(address.trim().toUpperCase());
+}
+
+// Helper to get sBTC balance for a wallet
+async function getSbtcBalance(walletAddress: string): Promise<number> {
+  try {
+    const stacksApiUrl = process.env.STACKS_API_URL || "https://api.testnet.hiro.so";
+    const response = await fetch(`${stacksApiUrl}/extended/v1/address/${walletAddress}/balances`);
+    
+    if (!response.ok) {
+      logRequestError(null as any, "send.balance_check_failed", {
+        walletAddress,
+        status: response.status,
+      });
+      return 0;
+    }
+
+    const data = await response.json() as any;
+    
+    // Parse all token balances to find sBTC
+    // sBTC asset identifier format: contract.token::sBTC or similar
+    const tokenBalances = data.tokens || {};
+    
+    // Try to find sBTC token (may be under different keys)
+    for (const [assetId, balance] of Object.entries(tokenBalances)) {
+      if (typeof assetId === "string" && assetId.includes("sbtc")) {
+        const balanceValue = (balance as any)?.balance || 0;
+        return Number(balanceValue) || 0;
+      }
+    }
+    
+    // Fallback: check under fungible tokens
+    const fungibleTokens = data.fungible_tokens || {};
+    for (const [assetId, balance] of Object.entries(fungibleTokens)) {
+      if (typeof assetId === "string" && assetId.includes("sbtc")) {
+        const balanceValue = (balance as any)?.balance || 0;
+        return Number(balanceValue) || 0;
+      }
+    }
+    
+    return 0;
+  } catch (error) {
+    logRequestError(null as any, "send.balance_api_error", {
+      walletAddress,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return 0;
+  }
+}
+
 const router = Router();
 
 router.post("/", requireAuth, async (req: Request, res: Response) => {
@@ -57,6 +110,22 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     if (!receiverWallet || !amountUsd || !sourceCountry || !destCountry) {
       res.status(400).json({
         error: "Missing required fields: receiverWallet, amountUsd, sourceCountry, destCountry",
+      });
+      return;
+    }
+
+    // Validate receiver wallet format
+    if (!isValidStacksAddress(receiverWallet)) {
+      res.status(400).json({
+        error: "Invalid receiver wallet address. Must be a valid Stacks wallet (e.g., ST... or SM...)",
+      });
+      return;
+    }
+
+    // Ensure sender and receiver are different
+    if (receiverWallet.toLowerCase() === senderWallet.toLowerCase()) {
+      res.status(400).json({
+        error: "Cannot send to your own wallet.",
       });
       return;
     }
@@ -150,6 +219,34 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const netAmount = amount - fee;
     const btcUsdPrice = await getLiveBtcUsdPrice();
     const sbtcAmount = usdToSbtcSatoshis(amount, btcUsdPrice);
+
+    // Verify sender has sufficient sBTC balance
+    if (process.env.NODE_ENV !== "test") {
+      logRequestInfo(req, "send.balance_check.started", {
+        senderWallet,
+        requiredAmount: sbtcAmount,
+      });
+
+      const senderBalance = await getSbtcBalance(senderWallet);
+      
+      if (senderBalance < sbtcAmount) {
+        logRequestInfo(req, "send.balance_check.insufficient", {
+          senderWallet,
+          available: senderBalance,
+          required: sbtcAmount,
+        });
+        res.status(400).json({
+          error: `Insufficient sBTC balance. Available: ${senderBalance} satoshis, Required: ${sbtcAmount} satoshis`,
+        });
+        return;
+      }
+
+      logRequestInfo(req, "send.balance_check.sufficient", {
+        senderWallet,
+        available: senderBalance,
+        required: sbtcAmount,
+      });
+    }
 
     let onChainTransferId: number | undefined;
 

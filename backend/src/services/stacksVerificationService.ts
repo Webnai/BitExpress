@@ -102,10 +102,10 @@ const STACKS_API_BASE_URL =
 
 const REMITTANCE_CONTRACT_ID = `${CONTRACT_ADDRESS}.${CONTRACT_NAME}`;
 // The sBTC asset identifier used to verify escrow events on-chain.
-// Testnet default: same-namespace .sbtc-token-v2 (deploy a SIP-010 mock).
+// Testnet default: same-namespace .sbtc-token-v3 (deploy a SIP-010 mock).
 // Mainnet: set SBTC_ASSET_IDENTIFIER=SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
 const SBTC_ASSET_IDENTIFIER =
-  process.env.SBTC_ASSET_IDENTIFIER || `${CONTRACT_ADDRESS}.sbtc-token-v2::sbtc`;
+  process.env.SBTC_ASSET_IDENTIFIER || `${CONTRACT_ADDRESS}.sbtc-token-v3::sbtc`;
 
 function normalizePrincipal(value?: string): string {
   return (value || "").trim().toUpperCase();

@@ -276,8 +276,9 @@ export default function SendPage() {
   const recipientGetsUsd = Math.max(amountUsd - feeUsd, 0);
   const localPerUsd = selectedRate ? selectedRate.rate / Math.max(selectedRate.btcUsdPrice, 1) : 0;
   const recipientGetsLocal = recipientGetsUsd * localPerUsd;
-  const connectedBalanceSbtc = sbtcBalance ? Number(sbtcBalance) / 100_000_000 : null;
-  const connectedBalanceSats = sbtcBalance ? Number(sbtcBalance) : null;
+  const connectedBalanceSats = sbtcBalance === null ? null : Number(sbtcBalance);
+  const hasValidSbtcBalance = connectedBalanceSats !== null && Number.isFinite(connectedBalanceSats);
+  const connectedBalanceSbtc = hasValidSbtcBalance ? connectedBalanceSats / 100_000_000 : null;
   const hasLoadedSbtcBalance = connectedBalanceSats !== null;
   const selectedFlagCountry = getFlagCountry(destCountry);
   const receiverWalletNormalized = receiverWallet.trim();
@@ -293,7 +294,7 @@ export default function SendPage() {
   const isMobileOperatorValid =
     !requiresMobileOperator || selectedMobileMoneyOperators.some((operator) => operator.code === recipientMobileProvider);
   const isRecipientNameValid = recipientNameNormalized.length > 1;
-  const hasEnoughSbtcBalance = !hasLoadedSbtcBalance || amountSatoshis <= connectedBalanceSats;
+  const hasEnoughSbtcBalance = hasValidSbtcBalance && amountSatoshis <= connectedBalanceSats;
   const canSubmitForm =
     Boolean(address) &&
     isAmountValid &&
@@ -446,6 +447,9 @@ export default function SendPage() {
 
       if (!txid) {
         const claimSecretHex = generateClaimSecretHex();
+
+        // This token contract uses direct transfer (no approve/allowance flow).
+        toast.info("Sending remittance transaction...");
         const contractCall = await createSendRemittanceTx({
           receiverWallet: receiverWalletNormalized,
           amountSatoshis,

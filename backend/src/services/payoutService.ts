@@ -50,38 +50,52 @@ function normalizeLocalPhoneNumber(countryCode: string, rawPhone: string): strin
     throw new Error(`Unsupported country: ${countryCode}`);
   }
 
-  const digits = normalizeDigits(rawPhone);
+  // Remove all non-digit characters (spaces, hyphens, parentheses, +, etc)
+  const digits = rawPhone.replace(/\D/g, "");
   if (!digits) {
     throw new Error("Recipient phone number is required for mobile-money payout.");
   }
 
-  if (digits.length === country.nationalNumberLength) {
+  // If it's already the correct national length with 0 prefix, return as-is
+  if (digits.length === country.nationalNumberLength && digits.startsWith(country.nationalPrefix || "0")) {
     return digits;
   }
 
+  // If it has the country dial code at the start
   if (digits.startsWith(country.dialCode)) {
-    const localPart = digits.slice(country.dialCode.length);
-    if (localPart.length === country.nationalNumberLength) {
-      return localPart;
+    const withoutDialCode = digits.slice(country.dialCode.length);
+    
+    // Correct length after removing dial code
+    if (withoutDialCode.length === country.nationalNumberLength - (country.nationalPrefix?.length ?? 1)) {
+      return (country.nationalPrefix || "0") + withoutDialCode;
     }
-    if (
-      country.nationalPrefix &&
-      localPart.length === country.nationalNumberLength - 1 &&
-      !localPart.startsWith(country.nationalPrefix)
-    ) {
-      return `${country.nationalPrefix}${localPart}`;
+    
+    // Already has the 0 prefix
+    if (withoutDialCode.startsWith(country.nationalPrefix || "0")) {
+      return withoutDialCode;
     }
   }
 
-  if (
-    country.nationalPrefix &&
-    digits.length === country.nationalNumberLength - 1 &&
-    !digits.startsWith(country.nationalPrefix)
-  ) {
-    return `${country.nationalPrefix}${digits}`;
+  // If it starts with the national prefix but missing dial code
+  if (country.nationalPrefix && digits.startsWith(country.nationalPrefix)) {
+    if (digits.length === country.nationalNumberLength) {
+      return digits;
+    }
   }
 
-  throw new Error(`Invalid phone number for ${country.name}.`);
+  // If it's just the local number without prefix
+  if (digits.length === (country.nationalNumberLength - (country.nationalPrefix?.length ?? 1))) {
+    return (country.nationalPrefix || "0") + digits;
+  }
+
+  // If starts with dial code without 0, add it
+  if (digits.startsWith(country.dialCode) && digits.length === country.dialCode.length + (country.nationalNumberLength - (country.nationalPrefix?.length ?? 1))) {
+    return (country.nationalPrefix || "0") + digits.slice(country.dialCode.length);
+  }
+
+  throw new Error(
+    `Invalid phone number for ${country.name}. Expected ${country.nationalNumberLength} digits (with ${country.nationalPrefix || "0"} prefix), got: ${digits}`
+  );
 }
 
 function toMinorUnits(amount: number): number {

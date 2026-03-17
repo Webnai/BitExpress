@@ -158,7 +158,7 @@ export const TRANSFER_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseco
 export const STACKS_NETWORK = process.env.STACKS_NETWORK || "testnet";
 export const CONTRACT_ADDRESS =
   process.env.CONTRACT_ADDRESS || "ST000000000000000000002AMW42H";
-export const CONTRACT_NAME = process.env.CONTRACT_NAME || "remittance";
+export const CONTRACT_NAME = process.env.CONTRACT_NAME || "remittance-v4";
 
 // API configuration
 export const PORT = parseInt(process.env.PORT || "4000", 10);

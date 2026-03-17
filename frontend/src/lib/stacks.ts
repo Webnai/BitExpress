@@ -5,7 +5,7 @@ export const STACKS_NETWORK: "mainnet" | "testnet" =
   process.env.NEXT_PUBLIC_STACKS_NETWORK === "mainnet" ? "mainnet" : "testnet";
 export const CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-export const CONTRACT_NAME = process.env.NEXT_PUBLIC_CONTRACT_NAME || "remittance";
+export const CONTRACT_NAME = process.env.NEXT_PUBLIC_CONTRACT_NAME || "remittance-v4";
 export const CONTRACT_ID = `${CONTRACT_ADDRESS}.${CONTRACT_NAME}` as `${string}.${string}`;
 const STACKS_API_BASE_URL =
   process.env.NEXT_PUBLIC_STACKS_API_URL ||
@@ -19,6 +19,10 @@ interface StacksTxLookup {
 }
 
 function formatOnChainFailureMessage(status: string, txResult?: string): string {
+  if (status === "abort_by_post_condition") {
+    return "On-chain transaction failed due to wallet post-conditions. Re-open the wallet confirmation and set post-condition mode to Allow, then try again.";
+  }
+
   if (!txResult) {
     return `On-chain transaction failed (${status}).`;
   }
@@ -34,6 +38,11 @@ export function usdToSbtcSatoshis(amountUsd: number, btcUsdPrice: number): numbe
   if (btcUsdPrice <= 0) return 0;
   return Math.round((amountUsd / btcUsdPrice) * 100_000_000);
 }
+
+export const SBTC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_SBTC_ADDRESS || 
+  (STACKS_NETWORK === "mainnet" 
+    ? "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token"
+    : `${CONTRACT_ADDRESS}.sbtc-token-v3`);
 
 export function generateClaimSecretHex(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -81,7 +90,7 @@ export async function createSendRemittanceTx(input: {
         Cl.stringAscii(input.destCountry),
         Cl.bufferFromHex(input.claimSecretHex),
       ],
-      network: STACKS_NETWORK,
+      postConditionMode: "allow",
     })) as { txid?: string };
 
     logClientInfo("stacks.send.response", {
@@ -143,7 +152,7 @@ export async function createClaimRemittanceTx(input: {
         Cl.uint(input.transferId),
         Cl.bufferFromHex(input.claimSecretHex),
       ],
-      network: STACKS_NETWORK,
+      postConditionMode: "allow",
     })) as { txid?: string };
 
     logClientInfo("stacks.claim.response", {
@@ -194,7 +203,7 @@ export async function createRefundRemittanceTx(input: {
       contract: CONTRACT_ID,
       functionName: "refund-remittance",
       functionArgs: [Cl.uint(input.transferId)],
-      network: STACKS_NETWORK,
+      postConditionMode: "allow",
     })) as { txid?: string };
 
     logClientInfo("stacks.refund.response", {
