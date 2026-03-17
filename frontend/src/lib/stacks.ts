@@ -4,7 +4,7 @@ import { logClientError, logClientInfo } from "@/lib/debug";
 export const STACKS_NETWORK: "mainnet" | "testnet" =
   process.env.NEXT_PUBLIC_STACKS_NETWORK === "mainnet" ? "mainnet" : "testnet";
 export const CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "ST000000000000000000002AMW42H";
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 export const CONTRACT_NAME = process.env.NEXT_PUBLIC_CONTRACT_NAME || "remittance";
 export const CONTRACT_ID = `${CONTRACT_ADDRESS}.${CONTRACT_NAME}` as `${string}.${string}`;
 const STACKS_API_BASE_URL =
