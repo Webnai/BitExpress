@@ -51,22 +51,23 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
+      if (!origin) return callback(null, true);
 
       if (isAllowedOrigin(origin)) {
-        callback(null, true);
-        return;
+        return callback(null, true);
       }
 
-      callback(new Error(`CORS blocked for origin: ${origin}`));
+      console.warn("Blocked by CORS:", origin);
+      return callback(null, false);
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
+    credentials: true,
   })
 );
+
+// Handle preflight
+app.options("*", cors());
 
 // Rate limiting: 100 requests per 15 minutes
 const limiter = rateLimit({
