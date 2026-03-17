@@ -18,6 +18,10 @@ dotenv.config();
 
 const app = express();
 
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 function isAllowedOrigin(origin: string) {
   const normalizedOrigin = origin.replace(/\/$/, "");
 
