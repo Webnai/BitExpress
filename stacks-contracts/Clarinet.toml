@@ -5,15 +5,15 @@ authors = []
 telemetry = true
 cache_dir = "./.cache"
 
-[contracts.remittance-v2]
+[contracts.remittance-v3]
 path = "contracts/remittance.clar"
 clarity_version = 2
-epoch = "latest"
+epoch = "2.4"
 
-[contracts.sbtc-token-v2]
+[contracts.sbtc-token-v3]
 path = "contracts/sbtc-token.clar"
 clarity_version = 2
-epoch = "latest"
+epoch = "2.4"
 
 # Check-checker settings:
 # trusted_sender: if true, inputs are trusted after tx_sender has been checked.

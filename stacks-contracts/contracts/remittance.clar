@@ -24,9 +24,9 @@
 (define-constant BASIS-POINTS-DENOMINATOR u10000)
 
 ;; sBTC SIP-010 token contract.
-;; Testnet: deploy a SIP-010 mock as .sbtc-token-v2 (same deployer namespace).
+;; Testnet: deploy a SIP-010 mock as .sbtc-token-v3 (same deployer namespace).
 ;; Mainnet: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
-(define-constant SBTC-TOKEN .sbtc-token-v2)
+(define-constant SBTC-TOKEN .sbtc-token-v3)
 
 ;; Transfer timeout: ~144 Stacks blocks (Stacks produces ~1 block per ~10 minutes,
 ;; so 144 Stacks blocks is approximately 24 hours of Stacks block time)

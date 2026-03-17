@@ -1,6 +1,6 @@
 ;; Test/local sBTC mock with SIP-010-like transfer semantics.
 ;; This contract exposes an FT named `sbtc`, so balances appear in:
-;; /extended/v1/address/<principal>/balances as <deployer>.sbtc-token::sbtc
+;; /extended/v1/address/<principal>/balances as <deployer>.sbtc-token-v3::sbtc
 
 (define-fungible-token sbtc)
 
@@ -30,7 +30,8 @@
     ;; Keep tx-sender based auth so remittance can escrow from caller.
     (asserts! (is-eq tx-sender sender) (err ERR-NOT-TOKEN-SENDER))
     (asserts! (is-standard sender) (err ERR-INVALID-SENDER))
-    (asserts! (is-standard recipient) (err ERR-INVALID-RECIPIENT))
+    ;; Recipient may be a contract principal (e.g. remittance escrow). Do not
+    ;; restrict with is-standard here - any valid principal is an acceptable recipient.
     (try! (ft-transfer? sbtc amount sender recipient))
     (ok true)
   )

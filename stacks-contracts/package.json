@@ -7,12 +7,17 @@
   "scripts": {
     "test": "vitest run",
     "test:report": "vitest run -- --coverage --costs",
-    "test:watch": "chokidar \"tests/**/*.ts\" \"contracts/**/*.clar\" -c \"npm run test:report\""
+    "test:watch": "chokidar \"tests/**/*.ts\" \"contracts/**/*.clar\" -c \"npm run test:report\"",
+    "test:rendezvous": "rendezvous . remittance test",
+    "test:rendezvous:invariant": "rendezvous . remittance invariant",
+    "test:rendezvous:sbtc": "rendezvous . sbtc-token test",
+    "test:all": "npm run test:report && npm run test:rendezvous && npm run test:rendezvous:invariant"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@stacks/clarinet-sdk": "^3.9.0",
+    "@stacks/rendezvous": "^0.1.0",
     "@stacks/transactions": "^7.2.0",
     "@types/node": "^24.4.0",
     "chokidar-cli": "^3.0.0",
