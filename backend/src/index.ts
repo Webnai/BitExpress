@@ -12,6 +12,7 @@ import claimRouter from "./routes/claim";
 import transactionRouter from "./routes/transaction";
 import exchangeRateRouter from "./routes/exchangeRate";
 import webhooksRouter from "./routes/webhooks";
+import ledgerRouter from "./routes/ledger";
 import { logError } from "./utils/logging";
 import { pollProcessingPayouts } from "./services/payoutPollingService";
 import { processFailedTransferRefunds } from "./services/refundService";
@@ -114,6 +115,7 @@ app.use("/api/transaction", transactionRouter);
 app.use("/api/exchange-rate", exchangeRateRouter);
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/ledger", ledgerRouter);
 
 // 404 handler
 app.use((_req, res) => {

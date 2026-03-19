@@ -28,7 +28,7 @@ function formatOnChainFailureMessage(status: string, txResult?: string): string 
   }
 
   if (txResult.includes("(err none)")) {
-    return "On-chain transaction failed: sBTC transfer into escrow was rejected (err none). This usually means insufficient sBTC balance, wrong network, or unsupported token setup for the connected wallet.";
+    return `On-chain transaction failed: sBTC transfer into escrow was rejected (err none). This usually means insufficient sBTC balance, wrong network, or a contract/token mismatch. Verify NEXT_PUBLIC_CONTRACT_NAME points to the active remittance contract and that the wallet holds ${SBTC_TOKEN_ADDRESS}::sbtc on ${STACKS_NETWORK}.`;
   }
 
   return `On-chain transaction failed (${status}): ${txResult}`;
@@ -106,6 +106,44 @@ export async function createSendRemittanceTx(input: {
   } catch (error) {
     logClientError("stacks.send.failed", {
       contract: CONTRACT_ID,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    throw error;
+  }
+}
+
+export async function createSbtcFaucetTx(): Promise<{ txid: string }> {
+  const [{ request }] = await Promise.all([import("@stacks/connect")]);
+
+  const faucetContract = `${CONTRACT_ADDRESS}.sbtc-token-v3`;
+
+  logClientInfo("stacks.faucet.request", {
+    contract: faucetContract,
+    network: STACKS_NETWORK,
+    functionName: "faucet",
+  });
+
+  try {
+    const response = (await request("stx_callContract", {
+      contract: faucetContract,
+      functionName: "faucet",
+      functionArgs: [],
+      postConditionMode: "allow",
+    })) as { txid?: string };
+
+    logClientInfo("stacks.faucet.response", {
+      contract: faucetContract,
+      response,
+    });
+
+    if (!response?.txid) {
+      throw new Error("Wallet did not return a transaction ID for faucet.");
+    }
+
+    return { txid: response.txid };
+  } catch (error) {
+    logClientError("stacks.faucet.failed", {
+      contract: faucetContract,
       message: error instanceof Error ? error.message : "unknown",
     });
     throw error;

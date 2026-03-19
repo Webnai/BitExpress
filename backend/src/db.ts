@@ -79,11 +79,28 @@ export interface AuthChallenge {
   usedAtMs?: number;
 }
 
+export interface WalletLedgerBalance extends AuditFields {
+  id: string;
+  walletAddress: string;
+  currency: "BTC" | "sBTC" | "STX" | "USD";
+  availableBalance: number;
+  pendingBalance: number;
+  heldBalance: number;
+  lastReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class Database {
   private transfers: Map<string, Transfer> = new Map();
   private users: Map<string, User> = new Map();
   private idempotency: Map<string, IdempotencyRecord> = new Map();
   private authChallenges: Map<string, AuthChallenge> = new Map();
+  private walletLedgers: Map<string, WalletLedgerBalance> = new Map();
+
+  private walletLedgerKey(walletAddress: string, currency: WalletLedgerBalance["currency"]): string {
+    return `${walletAddress}:${currency}`;
+  }
 
   createTransfer(transfer: Transfer): Transfer {
     this.transfers.set(transfer.id, transfer);
@@ -161,6 +178,17 @@ class Database {
     this.authChallenges.set(walletAddress, updated);
     return updated;
   }
+
+  getWalletLedger(walletAddress: string): WalletLedgerBalance[] {
+    return Array.from(this.walletLedgers.values()).filter(
+      (entry) => entry.walletAddress === walletAddress
+    );
+  }
+
+  upsertWalletLedger(entry: WalletLedgerBalance): WalletLedgerBalance {
+    this.walletLedgers.set(this.walletLedgerKey(entry.walletAddress, entry.currency), entry);
+    return entry;
+  }
 }
 
 export interface UserUpsertInput {
@@ -186,6 +214,8 @@ export interface DatabaseAdapter {
   saveAuthChallenge(challenge: AuthChallenge): Promise<AuthChallenge>;
   getAuthChallenge(walletAddress: string): Promise<AuthChallenge | undefined>;
   markAuthChallengeUsed(walletAddress: string, usedAt: string, usedAtMs: number): Promise<AuthChallenge | null>;
+  getWalletLedger(walletAddress: string): Promise<WalletLedgerBalance[]>;
+  upsertWalletLedger(entry: WalletLedgerBalance): Promise<WalletLedgerBalance>;
 }
 
 class InMemoryDatabase implements DatabaseAdapter {
@@ -281,6 +311,14 @@ class InMemoryDatabase implements DatabaseAdapter {
     usedAtMs: number
   ): Promise<AuthChallenge | null> {
     return this.base.markAuthChallengeUsed(walletAddress, usedAt, usedAtMs);
+  }
+
+  async getWalletLedger(walletAddress: string): Promise<WalletLedgerBalance[]> {
+    return this.base.getWalletLedger(walletAddress);
+  }
+
+  async upsertWalletLedger(entry: WalletLedgerBalance): Promise<WalletLedgerBalance> {
+    return this.base.upsertWalletLedger(entry);
   }
 }
 
@@ -467,6 +505,25 @@ class FirestoreDatabase implements DatabaseAdapter {
 
     const updated = await ref.get();
     return updated.data() as AuthChallenge;
+  }
+
+  async getWalletLedger(walletAddress: string): Promise<WalletLedgerBalance[]> {
+    const snap = await this.firestore
+      .collection("walletLedgers")
+      .where("walletAddress", "==", walletAddress)
+      .get();
+    return snap.docs.map((d) => d.data() as WalletLedgerBalance);
+  }
+
+  async upsertWalletLedger(entry: WalletLedgerBalance): Promise<WalletLedgerBalance> {
+    await this.firestore.collection("walletLedgers").doc(entry.id).set(
+      {
+        ...entry,
+        updatedAtServer: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return entry;
   }
 }
 

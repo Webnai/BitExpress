@@ -432,6 +432,48 @@ export async function apiGetExchangeRates() {
   }>("/api/exchange-rate");
 }
 
+export async function apiGetMyLedger() {
+  return apiFetch<{
+    walletAddress: string;
+    note: string;
+    ledger: Array<{
+      id: string;
+      walletAddress: string;
+      currency: "BTC" | "sBTC" | "STX" | "USD";
+      availableBalance: number;
+      pendingBalance: number;
+      heldBalance: number;
+      updatedAt: string;
+      lastReason?: string;
+    }>;
+  }>("/api/ledger/me", {
+    requiresAuth: true,
+  });
+}
+
+export async function apiDevCreditMyLedger(payload: {
+  currency: "BTC" | "sBTC" | "STX" | "USD";
+  amount: number;
+  reason?: string;
+}) {
+  return apiFetch<{
+    walletAddress: string;
+    updated: {
+      id: string;
+      currency: "BTC" | "sBTC" | "STX" | "USD";
+      availableBalance: number;
+      pendingBalance: number;
+      heldBalance: number;
+      updatedAt: string;
+      lastReason?: string;
+    };
+  }>("/api/ledger/me/credit", {
+    method: "POST",
+    requiresAuth: true,
+    body: payload,
+  });
+}
+
 export async function apiGetEstimate(amountUsd: number) {
   return apiFetch<{
     amountUsd: number;
