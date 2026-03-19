@@ -62,6 +62,7 @@ interface ResolvedTurnkeyWallet {
 }
 
 const STORAGE_KEY = "bitexpress.wallet";
+const LEATHER_PROVIDER_ID = "LeatherProvider";
 const turnkeyRuntimeConfig = getTurnkeyRuntimeConfig();
 const turnkeyBitcoinAddressFormat =
   STACKS_NETWORK === "testnet"
@@ -333,6 +334,7 @@ function WalletProviderCore({
         network: STACKS_NETWORK,
         forceWalletSelect: true,
         enableLocalStorage: true,
+        approvedProviderIds: [LEATHER_PROVIDER_ID],
       });
 
       const connectedEntry = pickAddressEntry(result.addresses);
