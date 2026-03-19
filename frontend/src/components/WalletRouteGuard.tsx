@@ -22,7 +22,13 @@ export default function WalletRouteGuard({ children }: { children: React.ReactNo
   }, [isHydrated, requiresWallet, connected, router]);
 
   if (!isHydrated) {
-    return null;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 text-sm text-[var(--color-text-muted)] shadow-[0_4px_18px_rgba(0,0,0,0.22)]">
+          Initializing secure wallet session...
+        </div>
+      </div>
+    );
   }
 
   if (requiresWallet && !connected) {

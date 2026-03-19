@@ -4,8 +4,15 @@ export interface TurnkeyRuntimeConfig {
 }
 
 export function getTurnkeyRuntimeConfig(): TurnkeyRuntimeConfig | null {
-  const organizationId = process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID?.trim();
-  const authProxyConfigId = process.env.NEXT_PUBLIC_TURNKEY_AUTH_PROXY_CONFIG_ID?.trim();
+  // Support both BitExpress-prefixed vars and Turnkey docs defaults.
+  const organizationId = (
+    process.env.NEXT_PUBLIC_TURNKEY_ORGANIZATION_ID ??
+    process.env.NEXT_PUBLIC_ORGANIZATION_ID
+  )?.trim();
+  const authProxyConfigId = (
+    process.env.NEXT_PUBLIC_TURNKEY_AUTH_PROXY_CONFIG_ID ??
+    process.env.NEXT_PUBLIC_AUTH_PROXY_CONFIG_ID
+  )?.trim();
 
   if (!organizationId || !authProxyConfigId) {
     return null;

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -312,6 +313,7 @@ export default function SendPage() {
     isMobileOperatorValid &&
     isRecipientNameValid &&
     hasEnoughSbtcBalance;
+  const isSenderStacksReady = Boolean(address && isLikelyStacksAddress(address));
 
   const sendMaxLabel = useMemo(() => {
     if (connectedBalanceSbtc === null) return null;
@@ -400,6 +402,11 @@ export default function SendPage() {
 
     if (!address) {
       toast.error("Connect your wallet first.");
+      return;
+    }
+
+    if (!isSenderStacksReady) {
+      toast.error("Connect a Stacks-compatible wallet before sending funds.");
       return;
     }
 
@@ -524,6 +531,35 @@ export default function SendPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (address && !isSenderStacksReady) {
+    return (
+      <div className="min-h-screen bg-[var(--background)]">
+        <div className="mx-auto max-w-[860px] px-4 py-10 md:px-6">
+          <div className="rounded-2xl border border-[var(--color-danger-500)] bg-[var(--color-danger-soft)] p-6 shadow-[0_6px_20px_rgba(0,0,0,0.3)]">
+            <h1 className="text-2xl font-bold text-[var(--color-heading)]">Wallet Setup Needed</h1>
+            <p className="mt-2 text-sm text-[var(--color-text)]">
+              Your current wallet is not ready for transfers yet. Connect a supported wallet, then come back to Send.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/fund"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-[#0f0f0f]"
+              >
+                Open Funding Help
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                Back To Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -96,13 +96,23 @@ async function apiFetch<T>(
 
     return parseJsonResponse<T>(path, response);
   } catch (error) {
+    const isNetworkFailure =
+      error instanceof TypeError &&
+      /failed to fetch|networkerror/i.test(error.message);
+
+    const normalizedError = isNetworkFailure
+      ? new Error(
+          `Cannot reach BitExpress API at ${API_BASE_URL_NORMALIZED}. Start the backend server or set NEXT_PUBLIC_API_BASE_URL to a reachable API.`
+        )
+      : error;
+
     logClientError("api.request_failed", {
       path,
       method,
-      message: error instanceof Error ? error.message : "unknown",
+      message: normalizedError instanceof Error ? normalizedError.message : "unknown",
       body: options.body ?? null,
     });
-    throw error;
+    throw normalizedError;
   }
 }
 
@@ -128,6 +138,25 @@ export async function apiVerifyWalletSignature(payload: {
     customToken: string;
     walletAddress: string;
   }>("/api/auth/verify", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function apiVerifyTurnkeyWalletSignature(payload: {
+  walletAddress: string;
+  nonce: string;
+  publicKey: string;
+  signature: {
+    r: string;
+    s: string;
+    v?: string;
+  };
+}) {
+  return apiFetch<{
+    customToken: string;
+    walletAddress: string;
+  }>("/api/auth/turnkey/verify", {
     method: "POST",
     body: payload,
   });

@@ -45,6 +45,47 @@ describe("BitExpress API", () => {
     });
   });
 
+  describe("POST /api/auth/turnkey/verify", () => {
+    it("returns custom token and creates a user profile on first Turnkey login", async () => {
+      const walletAddress = `tb1turnkey${Date.now()}`;
+
+      const verifySpy = jest
+        .spyOn(authService, "verifyTurnkeyAuthChallengeAndMintToken")
+        .mockResolvedValue("custom-token-turnkey-test");
+
+      const res = await request(app).post("/api/auth/turnkey/verify").send({
+        walletAddress,
+        nonce: "nonce-test",
+        publicKey: "03abcdef",
+        signature: {
+          r: "11",
+          s: "22",
+          v: "1b",
+        },
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.customToken).toBe("custom-token-turnkey-test");
+      expect(res.body.walletAddress).toBe(walletAddress);
+      expect(verifySpy).toHaveBeenCalledWith({
+        walletAddress,
+        nonce: "nonce-test",
+        publicKey: "03abcdef",
+        signature: {
+          r: "11",
+          s: "22",
+          v: "1b",
+        },
+      });
+
+      const user = await db.getUserByWallet(walletAddress);
+      expect(user).toBeDefined();
+      expect(user?.walletAddress).toBe(walletAddress);
+
+      verifySpy.mockRestore();
+    });
+  });
+
   describe("GET /health", () => {
     it("returns healthy status", async () => {
       const res = await request(app).get("/health");

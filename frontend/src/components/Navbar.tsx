@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { toast } from "sonner";
 
@@ -57,17 +57,28 @@ export default function Navbar() {
     walletName,
     displayAddress,
     isConnecting,
-    connectWallet,
+    connectLeatherWallet,
+    loginTurnkey,
     disconnectWallet,
   } = useWallet();
   const isLandingPage = pathname === "/";
 
-  const handleConnect = async () => {
+  const handleLeatherConnect = async () => {
     try {
-      await connectWallet();
+      await connectLeatherWallet();
       router.push("/dashboard");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Wallet connection failed.";
+      toast.error(message);
+    }
+  };
+
+  const handleTurnkeyLogin = async () => {
+    try {
+      await loginTurnkey();
+      router.push("/dashboard");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Turnkey login failed.";
       toast.error(message);
     }
   };
@@ -87,6 +98,12 @@ export default function Navbar() {
     : "text-[#5f6f88] hover:text-[#132a52]";
 
   const visibleNavItems = connected ? [...PUBLIC_NAV, ...PROTECTED_NAV] : [];
+
+  useEffect(() => {
+    if (connected && pathname === "/") {
+      router.replace("/dashboard");
+    }
+  }, [connected, pathname, router]);
 
   return (
     <nav
@@ -134,13 +151,22 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <button
-              className="btn-primary text-sm px-4 py-2"
-              onClick={() => void handleConnect()}
-              disabled={isConnecting}
-            >
-              {isConnecting ? "Connecting…" : "Login / Sign up"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn-secondary text-sm px-4 py-2"
+                onClick={() => void handleLeatherConnect()}
+                disabled={isConnecting}
+              >
+                {isConnecting ? "Connecting..." : "Connect Leather Wallet"}
+              </button>
+              <button
+                className="btn-primary text-sm px-4 py-2"
+                onClick={() => void handleTurnkeyLogin()}
+                disabled={isConnecting}
+              >
+                {isConnecting ? "Connecting..." : "Login"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -204,16 +230,28 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <button
-                className="btn-primary text-sm px-4 py-2 w-full"
-                onClick={() => {
-                  void handleConnect();
-                  setMenuOpen(false);
-                }}
-                disabled={isConnecting}
-              >
-                {isConnecting ? "Connecting…" : "Login / Sign up"}
-              </button>
+              <div className="space-y-2">
+                <button
+                  className="btn-secondary text-sm px-4 py-2 w-full"
+                  onClick={() => {
+                    void handleLeatherConnect();
+                    setMenuOpen(false);
+                  }}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? "Connecting..." : "Connect Leather Wallet"}
+                </button>
+                <button
+                  className="btn-primary text-sm px-4 py-2 w-full"
+                  onClick={() => {
+                    void handleTurnkeyLogin();
+                    setMenuOpen(false);
+                  }}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? "Connecting..." : "Login"}
+                </button>
+              </div>
             )}
           </div>
         </div>

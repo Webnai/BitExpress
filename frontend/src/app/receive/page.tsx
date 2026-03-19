@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -103,6 +104,10 @@ const FLAG_NAMES: FlagCountry[] = ["Ghana", "Nigeria", "Kenya", "Togo"];
 function toFlagCountry(name: string | undefined): FlagCountry | null {
   if (!name) return null;
   return FLAG_NAMES.find((f) => f.toLowerCase() === name.toLowerCase()) ?? null;
+}
+
+function isStacksWalletAddress(value: string): boolean {
+  return /^(SP|ST|SM|SN)[A-Z0-9]+$/.test(value);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -318,6 +323,7 @@ export default function ReceivePage() {
       })} GMT`
     : "--";
   const statusLabel = !transaction ? "Not loaded" : isClaimed ? "Claimed" : "Ready to Claim";
+  const isReceiverStacksReady = Boolean(address && isStacksWalletAddress(address));
 
   const withdrawalMethods: {
     method: WithdrawalMethod;
@@ -356,6 +362,35 @@ export default function ReceivePage() {
       badgeColor: "bg-[#f3f4f6] text-[#6b7280]",
     },
   ];
+
+  if (address && !isReceiverStacksReady) {
+    return (
+      <div className="min-h-screen bg-[var(--background)]">
+        <div className="mx-auto max-w-[860px] px-4 py-10 md:px-6">
+          <div className="rounded-2xl border border-[var(--color-danger-500)] bg-[var(--color-danger-soft)] p-6 shadow-[0_6px_20px_rgba(0,0,0,0.3)]">
+            <h1 className="text-2xl font-bold text-[var(--color-heading)]">Wallet Setup Needed</h1>
+            <p className="mt-2 text-sm text-[var(--color-text)]">
+              Your current wallet is not ready for claim yet. Connect a supported wallet, then return to this page.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/fund"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-[#0f0f0f]"
+              >
+                Open Funding Help
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                Back To Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Main loaded UI ───────────────────────────────────────────────────────────
   return (

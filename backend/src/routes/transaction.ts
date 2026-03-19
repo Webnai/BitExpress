@@ -187,7 +187,7 @@ router.post("/:id/refund", requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  if (process.env.NODE_ENV !== "test") {
+  if (process.env.NODE_ENV === "production") {
     if (!refundStacksTxId) {
       res.status(400).json({
         error: "refundStacksTxId is required and must reference a successful refund-remittance transaction.",

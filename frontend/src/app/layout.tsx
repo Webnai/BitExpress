@@ -21,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
+        suppressHydrationWarning
         className="antialiased min-h-screen"
         style={{ background: "var(--background)", color: "var(--foreground)" }}
       >
