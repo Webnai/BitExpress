@@ -79,7 +79,17 @@ const turnkeyProviderConfig: TurnkeyProviderConfig | null = turnkeyRuntimeConfig
         methods: {
           emailOtpAuthEnabled: true,
           passkeyAuthEnabled: true,
+          googleOauthEnabled: Boolean(turnkeyRuntimeConfig.oauthRedirectUri),
+          appleOauthEnabled: Boolean(turnkeyRuntimeConfig.oauthRedirectUri),
+          facebookOauthEnabled: Boolean(turnkeyRuntimeConfig.oauthRedirectUri),
+          xOauthEnabled: Boolean(turnkeyRuntimeConfig.oauthRedirectUri),
+          discordOauthEnabled: Boolean(turnkeyRuntimeConfig.oauthRedirectUri),
         },
+        oauthConfig: turnkeyRuntimeConfig.oauthRedirectUri
+          ? {
+              oauthRedirectUri: turnkeyRuntimeConfig.oauthRedirectUri,
+            }
+          : undefined,
         createSuborgParams: {
           emailOtpAuth: {
             customWallet: {

@@ -292,6 +292,7 @@ export async function waitForStacksTxSuccess(
             txid: normalizedTxid,
             status,
             txResult,
+            message,
           });
           throw new Error(message);
         }
