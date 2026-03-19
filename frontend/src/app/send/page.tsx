@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ import {
   apiSend,
 } from "@/lib/api";
 import {
+  CONTRACT_ADDRESS,
   createSendRemittanceTx,
   generateClaimSecretHex,
   getStacksTxExplorerUrl,
@@ -87,7 +89,8 @@ type CountryMetaMap = Record<
   }
 >;
 
-function shortWallet(value: string) {
+function shortWallet(value?: string | null) {
+  if (!value) return "--";
   if (value.length <= 12) return value;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
@@ -208,8 +211,9 @@ export default function SendPage() {
 
       if (historyResult.status === "fulfilled") {
         const recipients = historyResult.value.sent
+          .filter((entry) => Boolean(entry.counterpartyWallet))
           .map((entry) => ({
-            wallet: entry.counterpartyWallet,
+            wallet: entry.counterpartyWallet as string,
             name: entry.counterpartyName,
             countryCode: entry.countryCode,
             countryName: entry.countryName || entry.countryCode,
@@ -281,13 +285,17 @@ export default function SendPage() {
   const connectedBalanceSbtc = hasValidSbtcBalance ? connectedBalanceSats / 100_000_000 : null;
   const hasLoadedSbtcBalance = connectedBalanceSats !== null;
   const selectedFlagCountry = getFlagCountry(destCountry);
+  const operatorCustodyWallet = CONTRACT_ADDRESS?.trim() ?? "";
   const receiverWalletNormalized = receiverWallet.trim();
+  const requiresRecipientWallet = method === "crypto_wallet";
+  const onChainReceiverWallet = requiresRecipientWallet ? receiverWalletNormalized : operatorCustodyWallet;
   const recipientNameNormalized = recipientName.trim();
   const phoneNormalized = phone.trim();
   const isAmountValid = Number.isFinite(amountUsd) && amountUsd >= 1 && amountUsd <= 10000;
-  const isRecipientWalletValid = isLikelyStacksAddress(receiverWalletNormalized);
+  const isRecipientWalletValid = !requiresRecipientWallet || isLikelyStacksAddress(receiverWalletNormalized);
   const requiresPhone = method === "mobile_money";
   const requiresMobileOperator = method === "mobile_money";
+  const isOperatorCustodyWalletValid = method !== "mobile_money" || isLikelyStacksAddress(operatorCustodyWallet);
   const isPhoneValid = !requiresPhone || phoneNormalized.length >= 8;
   const isLiveMobileMoneyAvailable =
     method !== "mobile_money" || Boolean(selectedCountryMeta?.supportsMobileMoneyPayout);
@@ -299,11 +307,13 @@ export default function SendPage() {
     Boolean(address) &&
     isAmountValid &&
     isRecipientWalletValid &&
+    isOperatorCustodyWalletValid &&
     isPhoneValid &&
     isLiveMobileMoneyAvailable &&
     isMobileOperatorValid &&
     isRecipientNameValid &&
     hasEnoughSbtcBalance;
+  const isSenderStacksReady = Boolean(address && isLikelyStacksAddress(address));
 
   const sendMaxLabel = useMemo(() => {
     if (connectedBalanceSbtc === null) return null;
@@ -359,7 +369,7 @@ export default function SendPage() {
     });
 
     const response = await apiSend({
-      receiverWallet: receiverWalletNormalized,
+      receiverWallet: requiresRecipientWallet ? receiverWalletNormalized : undefined,
       amountUsd,
       sourceCountry,
       destCountry,
@@ -395,8 +405,18 @@ export default function SendPage() {
       return;
     }
 
+    if (!isSenderStacksReady) {
+      toast.error("Connect a Stacks-compatible wallet before sending funds.");
+      return;
+    }
+
     if (!isRecipientWalletValid) {
       toast.error("Enter a valid recipient Stacks wallet address.");
+      return;
+    }
+
+    if (!isOperatorCustodyWalletValid) {
+      toast.error("Mobile money payout is not configured correctly. Set a valid contract/deployer wallet.");
       return;
     }
 
@@ -437,7 +457,7 @@ export default function SendPage() {
 
       logClientInfo("send.submit.started", {
         senderWallet: address,
-        receiverWallet: receiverWalletNormalized,
+        receiverWallet: onChainReceiverWallet,
         amountUsd,
         sourceCountry,
         destCountry,
@@ -451,7 +471,7 @@ export default function SendPage() {
         // This token contract uses direct transfer (no approve/allowance flow).
         toast.info("Sending remittance transaction...");
         const contractCall = await createSendRemittanceTx({
-          receiverWallet: receiverWalletNormalized,
+          receiverWallet: onChainReceiverWallet,
           amountSatoshis,
           sourceCountry,
           destCountry,
@@ -461,7 +481,7 @@ export default function SendPage() {
         txid = contractCall.txid;
         logClientInfo("send.contract_broadcasted", {
           txid,
-          receiverWallet: receiverWalletNormalized,
+          receiverWallet: onChainReceiverWallet,
         });
         setPendingStacksTxId(txid);
         setPendingClaimSecret(claimSecretHex);
@@ -511,6 +531,35 @@ export default function SendPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (address && !isSenderStacksReady) {
+    return (
+      <div className="min-h-screen bg-[var(--background)]">
+        <div className="mx-auto max-w-[860px] px-4 py-10 md:px-6">
+          <div className="rounded-2xl border border-[var(--color-danger-500)] bg-[var(--color-danger-soft)] p-6 shadow-[0_6px_20px_rgba(0,0,0,0.3)]">
+            <h1 className="text-2xl font-bold text-[var(--color-heading)]">Wallet Setup Needed</h1>
+            <p className="mt-2 text-sm text-[var(--color-text)]">
+              Your current wallet is not ready for transfers yet. Connect a supported wallet, then come back to Send.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/fund"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-[#0f0f0f]"
+              >
+                Open Funding Help
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                Back To Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -624,17 +673,19 @@ export default function SendPage() {
                 />
               </div>
 
-              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
-                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Wallet</label>
-                <input
-                  value={receiverWallet}
-                  onChange={(e) => setReceiverWallet(e.target.value)}
-                  className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
-                  placeholder="SP..."
-                  required
-                />
-                <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
-              </div>
+              {requiresRecipientWallet ? (
+                <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                  <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Wallet</label>
+                  <input
+                    value={receiverWallet}
+                    onChange={(e) => setReceiverWallet(e.target.value)}
+                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
+                    placeholder="SP..."
+                    required
+                  />
+                  <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-6">

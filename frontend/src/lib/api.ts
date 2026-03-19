@@ -3,11 +3,10 @@ import { logClientError, logClientInfo } from "@/lib/debug";
 import { API_BASE_URL_NORMALIZED } from "@/types";
 
 const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
-const STACKS_TESTNET_API_BASE_URL =
-  process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
-const STACKS_CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-// Mainnet sBTC: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
+const STACKS_TESTNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
+const STACKS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
+// SBTC asset identifier in the format "SP...<contract_address>::<asset_name>"
 const SBTC_ASSET_IDENTIFIER =
   process.env.NEXT_PUBLIC_SBTC_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.sbtc-token-v3::sbtc`;
 
@@ -96,13 +95,23 @@ async function apiFetch<T>(
 
     return parseJsonResponse<T>(path, response);
   } catch (error) {
+    const isNetworkFailure =
+      error instanceof TypeError &&
+      /failed to fetch|networkerror/i.test(error.message);
+
+    const normalizedError = isNetworkFailure
+      ? new Error(
+          `Cannot reach BitExpress API at ${API_BASE_URL_NORMALIZED}. Start the backend server or set NEXT_PUBLIC_API_BASE_URL to a reachable API.`
+        )
+      : error;
+
     logClientError("api.request_failed", {
       path,
       method,
-      message: error instanceof Error ? error.message : "unknown",
+      message: normalizedError instanceof Error ? normalizedError.message : "unknown",
       body: options.body ?? null,
     });
-    throw error;
+    throw normalizedError;
   }
 }
 
@@ -133,8 +142,27 @@ export async function apiVerifyWalletSignature(payload: {
   });
 }
 
+export async function apiVerifyTurnkeyWalletSignature(payload: {
+  walletAddress: string;
+  nonce: string;
+  publicKey: string;
+  signature: {
+    r: string;
+    s: string;
+    v?: string;
+  };
+}) {
+  return apiFetch<{
+    customToken: string;
+    walletAddress: string;
+  }>("/api/auth/turnkey/verify", {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export async function apiSend(payload: {
-  receiverWallet: string;
+  receiverWallet?: string;
   amountUsd: number;
   sourceCountry: string;
   destCountry: string;

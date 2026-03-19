@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "@turnkey/react-wallet-kit/styles.css";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
+        suppressHydrationWarning
         className="antialiased min-h-screen"
         style={{ background: "var(--background)", color: "var(--foreground)" }}
       >

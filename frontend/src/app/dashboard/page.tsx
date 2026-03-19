@@ -59,6 +59,7 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 const SUPPORTED_FLAG_NAMES = new Set(["Ghana", "Nigeria", "Kenya", "Togo"]);
+const ONBOARDING_STORAGE_PREFIX = "bitexpress.onboarding.seen";
 
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -107,6 +108,10 @@ function shortValue(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
+function isStacksWalletAddress(value: string): boolean {
+  return /^(SP|ST|SM|SN)[A-Z0-9]+$/.test(value);
+}
+
 function resolveDisplayCounterparty(row: WalletHistoryEntry) {
   if (row.counterpartyWallet) {
     return row.counterpartyName || shortValue(row.counterpartyWallet);
@@ -151,6 +156,41 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refundingTransferId, setRefundingTransferId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+
+  const isStacksAddress = Boolean(address && isStacksWalletAddress(address));
+
+  useEffect(() => {
+    if (!address || typeof window === "undefined") return;
+    const onboardingKey = `${ONBOARDING_STORAGE_PREFIX}.${walletName ?? "wallet"}.${address}`;
+    const alreadySeen = window.localStorage.getItem(onboardingKey) === "1";
+    if (!alreadySeen) {
+      setShowOnboarding(true);
+    }
+  }, [address, walletName]);
+
+  const acknowledgeOnboarding = () => {
+    if (!address || typeof window === "undefined") {
+      setShowOnboarding(false);
+      return;
+    }
+    const onboardingKey = `${ONBOARDING_STORAGE_PREFIX}.${walletName ?? "wallet"}.${address}`;
+    window.localStorage.setItem(onboardingKey, "1");
+    setShowOnboarding(false);
+  };
+
+  const handleCopyAddress = async () => {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(true);
+      toast.success("Wallet address copied.");
+      window.setTimeout(() => setCopiedAddress(false), 1800);
+    } catch {
+      toast.error("Failed to copy wallet address.");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +199,17 @@ export default function DashboardPage() {
       if (!address) {
         setTransactions([]);
         setBalanceMicroStx(null);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!isStacksWalletAddress(address)) {
+        setTransactions([]);
+        setBalanceMicroStx(null);
+        setError(
+          "Your connected wallet is not a Stacks address yet. BitExpress on-chain transfers currently run on Stacks/sBTC, so connect a Stacks-compatible wallet for transfer history and settlement.",
+        );
         setIsLoading(false);
         return;
       }
@@ -188,11 +239,19 @@ export default function DashboardPage() {
         });
       } catch (loadError) {
         if (cancelled) return;
+        const message =
+          loadError instanceof Error ? loadError.message : "Failed to load dashboard data.";
+        const authIssue = message.includes("You must be signed in before making this request.");
+
         logClientError("dashboard.load_failed", {
           address,
-          message: loadError instanceof Error ? loadError.message : "unknown",
+          message,
         });
-        setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard data.");
+        setError(
+          authIssue
+            ? "Wallet connected, but backend session is not ready. Please reconnect, then retry. If this keeps happening on Turnkey, use a Stacks wallet for now while Turnkey session bridging is finalized."
+            : message,
+        );
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -317,7 +376,53 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      {showOnboarding ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/65 px-4">
+          <Card className="w-full max-w-lg border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_20px_40px_rgba(0,0,0,0.45)]">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-2xl font-bold text-[var(--color-heading)]">Welcome to BitExpress</CardTitle>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Your wallet is connected. Before you send money, make sure your balance is ready.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-[var(--color-text)]">
+              <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+                <p className="text-xs text-[var(--color-text-muted)]">Connected wallet</p>
+                <p className="mt-1 font-mono text-xs break-all">{address ?? "--"}</p>
+              </div>
+              <ol className="list-decimal space-y-2 pl-5 text-[var(--color-text-muted)]">
+                <li>Add BTC to your wallet and wait for confirmation.</li>
+                <li>Keep a small fee balance for transactions.</li>
+                <li>Open Send to create your transfer.</li>
+              </ol>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCopyAddress()}
+                  className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                >
+                  {copiedAddress ? "Copied" : "Copy address"}
+                </button>
+                <button
+                  type="button"
+                  onClick={acknowledgeOnboarding}
+                  className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-[#0f0f0f]"
+                >
+                  Continue
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-[1180px] px-4 py-7 md:px-6 md:py-8">
+        {isLoading ? (
+          <div className="mb-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
+            Loading wallet and transfer data...
+          </div>
+        ) : null}
+
         <section className="grid gap-4 md:grid-cols-3">
           <Card className="border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_4px_18px_rgba(0,0,0,0.22)]">
             <CardHeader className="pb-1">
@@ -364,11 +469,21 @@ export default function DashboardPage() {
         <section className="mt-5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 md:p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/send" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-[#0f0f0f] shadow-sm hover:opacity-95">
+              <Link
+                href={isStacksAddress ? "/send" : "#"}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold shadow-sm ${
+                  isStacksAddress
+                    ? "bg-[var(--color-primary)] text-[#0f0f0f] hover:opacity-95"
+                    : "pointer-events-none bg-[var(--color-border)] text-[var(--color-text-muted)]"
+                }`}
+              >
                 Send New Transfer →
               </Link>
               <Link href="/receive" className="rounded-lg border border-[var(--color-primary)] bg-transparent px-4 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
                 Claim Incoming Funds
+              </Link>
+              <Link href="/fund" className="rounded-lg border border-[var(--color-border)] bg-transparent px-4 py-2 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
+                Funding Help
               </Link>
             </div>
             <div className="text-xs text-[var(--color-text-muted)]">
@@ -376,6 +491,45 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+
+        <Card className="mt-5 border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_4px_18px_rgba(0,0,0,0.22)]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-bold text-[var(--color-heading)]">Wallet Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]">
+                Connected wallet: {walletName ?? "Unknown"}
+              </Badge>
+              <Badge className="bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
+                Settlement network: {isStacksAddress ? "Stacks" : "Stacks required"}
+              </Badge>
+              <Badge className="bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]">
+                Asset: sBTC
+              </Badge>
+            </div>
+
+            <div className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+              <p className="text-xs text-[var(--color-text-muted)]">Wallet address</p>
+              <p className="mt-1 break-all font-mono text-xs text-[var(--color-text)]">{address ?? "--"}</p>
+              <button
+                type="button"
+                onClick={() => void handleCopyAddress()}
+                className="mt-2 rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                {copiedAddress ? "Copied" : "Copy address"}
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--color-text-muted)]">If your deposit does not appear right away, give it a few minutes and refresh.</p>
+            <Link
+              href="/fund"
+              className="inline-flex rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            >
+              Open funding guide
+            </Link>
+          </CardContent>
+        </Card>
 
         {error ? (
           <Card className="mt-5 border-[var(--color-danger-500)] bg-[var(--color-danger-soft)] shadow-none">
@@ -390,6 +544,14 @@ export default function DashboardPage() {
                 <div>
                   <CardTitle className="text-[1.7rem] font-bold text-[var(--color-heading)]">Transaction History</CardTitle>
                   <p className="text-sm text-[var(--color-text-muted)]">Backed by your wallet address and backend records</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge className="bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
+                      Operator claim: mobile-money custody
+                    </Badge>
+                    <Badge className="bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]">
+                      Receiver claim: direct wallet payout
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </CardHeader>
