@@ -3,11 +3,10 @@ import { logClientError, logClientInfo } from "@/lib/debug";
 import { API_BASE_URL_NORMALIZED } from "@/types";
 
 const STACKS_MAINNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_API_URL || "https://api.hiro.so";
-const STACKS_TESTNET_API_BASE_URL =
-  process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
-const STACKS_CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-// Mainnet sBTC: SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc
+const STACKS_TESTNET_API_BASE_URL = process.env.NEXT_PUBLIC_STACKS_TESTNET_API_URL || "https://api.testnet.hiro.so";
+const STACKS_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
+// SBTC asset identifier in the format "SP...<contract_address>::<asset_name>"
 const SBTC_ASSET_IDENTIFIER =
   process.env.NEXT_PUBLIC_SBTC_ASSET_IDENTIFIER || `${STACKS_CONTRACT_ADDRESS}.sbtc-token-v3::sbtc`;
 

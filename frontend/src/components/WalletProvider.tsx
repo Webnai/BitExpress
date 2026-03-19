@@ -64,11 +64,11 @@ interface ResolvedTurnkeyWallet {
 const STORAGE_KEY = "bitexpress.wallet";
 const turnkeyRuntimeConfig = getTurnkeyRuntimeConfig();
 const turnkeyBitcoinAddressFormat =
-  STACKS_NETWORK === "mainnet"
-    ? "ADDRESS_FORMAT_BITCOIN_MAINNET_P2WPKH"
-    : "ADDRESS_FORMAT_BITCOIN_TESTNET_P2WPKH";
+  STACKS_NETWORK === "testnet"
+    ? "ADDRESS_FORMAT_BITCOIN_TESTNET_P2WPKH"
+    : "ADDRESS_FORMAT_BITCOIN_MAINNET_P2WPKH";
 const turnkeyDefaultWalletAccounts = generateWalletAccountsFromAddressFormat({
-  addresses: [turnkeyBitcoinAddressFormat, "ADDRESS_FORMAT_ETHEREUM", "ADDRESS_FORMAT_SOLANA"],
+  addresses: [turnkeyBitcoinAddressFormat],
 });
 
 const turnkeyProviderConfig: TurnkeyProviderConfig | null = turnkeyRuntimeConfig
