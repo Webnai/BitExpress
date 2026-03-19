@@ -75,6 +75,25 @@ async function getSbtcBalance(walletAddress: string): Promise<number> {
 
 const router = Router();
 
+/**
+ * POST /api/send - Initiate a remittance transfer
+ * 
+ * **Hybrid Custody Model:**
+ * - **Mobile Money Payouts**: Operator (deployer wallet) receives sBTC in escrow.
+ *   Operator controls payout timing via Paystack/payment provider. Receiver identity
+ *   verified via phone + name + OTP before disbursement.
+ * 
+ * - **Crypto Wallet Payouts**: Receiver's wallet receives sBTC in escrow.
+ *   Receiver can claim directly via signed contract call. Best for crypto-native users.
+ * 
+ * Flow:
+ * 1. Validate sender auth, amounts, countries, payout method
+ * 2. Verify sender has sufficient sBTC balance
+ * 3. Verify on-chain send-remittance contract call was successful
+ * 4. Store transfer with operatorCustody flag based on payout method
+ * 5. Send SMS notification to recipient with claim code
+ * 6. Return transfer details with appropriate claimAuthorization type
+ */
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const senderWallet = req.auth?.walletAddress;
@@ -113,27 +132,31 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     }
 
     const requestedReceiverWallet = typeof receiverWallet === "string" ? receiverWallet : "";
-    const effectiveReceiverWallet =
-      payoutMethod === "mobile_money" ? getDeployerWallet() : requestedReceiverWallet;
-    const beneficiaryWallet = payoutMethod === "mobile_money" ? requestedReceiverWallet || undefined : undefined;
+    
+    // For mobile-money payouts, operator holds escrow; for crypto, receiver holds it
+    const effectiveReceiverWallet = 
+      payoutMethod === "mobile_money" 
+        ? getDeployerWallet() 
+        : requestedReceiverWallet;
 
-    if (!effectiveReceiverWallet) {
+    // Receiver wallet is required for crypto payouts; optional for mobile-money
+    if (payoutMethod === "crypto_wallet" && !effectiveReceiverWallet) {
       res.status(400).json({
-        error: "receiverWallet is required for non-mobile-money payouts.",
+        error: "receiverWallet is required for crypto wallet payouts.",
       });
       return;
     }
 
-    // Validate receiver wallet format
-    if (!isValidStacksAddress(effectiveReceiverWallet)) {
+    // Validate receiver wallet format (only needed for crypto payouts)
+    if (payoutMethod === "crypto_wallet" && !isValidStacksAddress(effectiveReceiverWallet)) {
       res.status(400).json({
         error: "Invalid receiver wallet address. Must be a valid Stacks wallet (e.g., ST... or SM...)",
       });
       return;
     }
 
-    // Ensure sender and receiver are different
-    if (effectiveReceiverWallet.toLowerCase() === senderWallet.toLowerCase()) {
+    // Ensure sender and receiver are different (only check for crypto payouts)
+    if (payoutMethod === "crypto_wallet" && effectiveReceiverWallet.toLowerCase() === senderWallet.toLowerCase()) {
       res.status(400).json({
         error: "Cannot send to your own wallet.",
       });
@@ -149,7 +172,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     const requestHash = hashRequestBody({
       senderWallet,
       receiverWallet: effectiveReceiverWallet,
-      beneficiaryWallet: beneficiaryWallet ?? null,
+      beneficiaryWallet: payoutMethod === "mobile_money" ? requestedReceiverWallet : null,
       amountUsd,
       sourceCountry,
       destCountry,
@@ -286,7 +309,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       id: transferId,
       sender: senderWallet,
       receiver: effectiveReceiverWallet,
-      beneficiaryWallet,
+      beneficiaryWallet: payoutMethod === "mobile_money" ? requestedReceiverWallet : undefined,
       onChainTransferId,
       amount: sbtcAmount,
       amountUsd: amount,
@@ -356,8 +379,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
         netAmount: transfer.netAmount,
         receiverWallet: transfer.receiver,
         beneficiaryWallet: transfer.beneficiaryWallet ?? null,
-        claimAuthorization:
-          transfer.payoutMethod === "mobile_money" ? "operator_only" : "receiver_only",
+        claimAuthorization: payoutMethod === "mobile_money" ? "operator_only" : "receiver_only",
         sourceCountry,
         destCountry,
         createdAt: transfer.createdAt,

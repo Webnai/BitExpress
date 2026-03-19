@@ -200,7 +200,7 @@ describe("BitExpress API", () => {
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/not available/i);
+      expect(res.body.error).toMatch(/unsupported|not available/i);
     });
   });
 
@@ -215,11 +215,11 @@ describe("BitExpress API", () => {
         .send({
           receiverWallet: "SP2RECEIVER",
           amountUsd: 50,
-          sourceCountry: "KEN",
-          destCountry: "SEN",
-          recipientPhone: "+221771234567",
+          sourceCountry: "GHA",
+          destCountry: "KEN",
+          recipientPhone: "+254712345678",
           recipientName: "Jane Smith",
-          recipientMobileProvider: "OMSN",
+          recipientMobileProvider: "MPESA",
           payoutMethod: "mobile_money",
         });
 
@@ -231,7 +231,7 @@ describe("BitExpress API", () => {
       expect(res.status).toBe(200);
       expect(res.body.transaction.id).toBe(transferId);
       expect(res.body.transaction.status).toBe("pending");
-      expect(res.body.transaction.sourceCountry.code).toBe("KEN");
+      expect(res.body.transaction.sourceCountry.code).toBe("GHA");
       expect(res.body.transaction.claimAuthorization).toBe("operator_only");
       expect(res.body.transaction.isOperatorCustodied).toBe(true);
     });

@@ -9,12 +9,31 @@ import { logRequestInfo } from "../utils/logging";
 
 const router = Router();
 
+/**
+ * Custody metadata function
+ * 
+ * **Hybrid Model Determination:**
+ * - payoutMethod="mobile_money" → operator-custodial (isOperatorCustodied=true)
+ *   - On-chain receiver: operator wallet (deployer)
+ *   - Off-chain beneficiary: recipientPhone/recipientName (for Paystack payout)
+ *   - Claim authorization: operator_only (operator controls payout timing)
+ * 
+ * - payoutMethod="crypto_wallet" → receiver-custodial (isOperatorCustodied=false)
+ *   - On-chain receiver: recipient wallet (from request)
+ *   - Claim authorization: receiver_only (receiver controls claim)
+ * 
+ * beneficiaryWallet field: stored for mobile-money payouts to track actual recipient
+ * (separate from on-chain receiver wallet which points to operator)
+ */
 function getCustodyMetadata(transfer: {
   payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
   receiver: string;
   beneficiaryWallet?: string;
 }) {
+  // Mobile-money payouts are operator-custodial (operator holds escrow, controls payout)
+  // Crypto payouts are receiver-custodial (receiver claims and holds escrow)
   const isOperatorCustodied = transfer.payoutMethod === "mobile_money";
+  
   return {
     isOperatorCustodied,
     claimAuthorization: isOperatorCustodied ? "operator_only" : "receiver_only",
@@ -43,7 +62,7 @@ router.get("/wallet/:address", requireAuth, async (req: Request, res: Response) 
         ...getCustodyMetadata(t),
         id: t.id,
         direction: "sent",
-        counterpartyWallet: t.payoutMethod === "mobile_money" ? t.beneficiaryWallet ?? null : t.receiver,
+        counterpartyWallet: t.receiver,
         counterpartyName: t.recipientName,
         amountUsd: t.amountUsd,
         fee: t.fee,

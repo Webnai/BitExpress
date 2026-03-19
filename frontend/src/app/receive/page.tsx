@@ -226,7 +226,16 @@ export default function ReceivePage() {
       toast.error("Connect your wallet first.");
       return;
     }
-    if (!transaction) return;
+    if (!transaction) {
+      toast.error("Load a transfer first, then paste the claim secret.");
+      return;
+    }
+
+    const transactionStatus = String(transaction.status ?? "").toLowerCase();
+    if (transactionStatus !== "pending" && transactionStatus !== "ready") {
+      toast.error(`This transfer cannot be claimed yet (status: ${transaction.status}).`);
+      return;
+    }
 
     if (transaction.onChainTransferId === undefined) {
       toast.error("Missing on-chain transfer id. Reload transfer details and try again.");
@@ -303,6 +312,8 @@ export default function ReceivePage() {
   const btcAmount = transaction ? transaction.amountUsd / btcUsdPrice : 0;
   const feeBtc = transaction ? transaction.fee / btcUsdPrice : 0;
   const isClaimed = transaction?.status === "claimed";
+  const normalizedTransactionStatus = String(transaction?.status ?? "").toLowerCase();
+  const isClaimableTransaction = normalizedTransactionStatus === "pending" || normalizedTransactionStatus === "ready";
   const flagCountry = toFlagCountry(transaction?.sourceCountry.name);
   const senderLabel = transaction
     ? transaction.recipientName ?? truncateAddress(transaction.sender)
@@ -730,7 +741,7 @@ export default function ReceivePage() {
                   <Button
                     className="w-full h-11 text-base font-semibold"
                     onClick={claimFunds}
-                    disabled={!transaction || !address || isClaiming || transaction.status !== "pending"}
+                    disabled={isClaiming || isClaimed || !isClaimableTransaction}
                   >
                     {isClaiming ? "Claiming…" : "Claim Funds"}
                   </Button>

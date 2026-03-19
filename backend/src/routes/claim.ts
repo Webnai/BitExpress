@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 
-import { getDeployerWallet } from "../config";
 import { db } from "../db";
 import { requireAuth } from "../middleware/auth";
+import { getDeployerWallet } from "../config";
 import { convertUsdToLocal, convertUsdToLocalLive } from "../services/fxService";
 import { sendNotification } from "../services/notificationService";
 import { processPayout } from "../services/payoutService";
@@ -18,6 +18,26 @@ import { verifyClaimRemittanceTx } from "../services/stacksVerificationService";
 
 const router = Router();
 
+/**
+ * POST /api/claim - Finalize a transfer and trigger payout
+ * 
+ * **Authorization Model (Hybrid Custody):**
+ * - **Mobile Money (operator_only)**: Only the operator wallet can claim.
+ *   Operator verifies recipient via OTP and processes Paystack/payment provider payout.
+ *   No receiver signature needed - system manages the claim on operator's behalf.
+ * 
+ * - **Crypto Wallet (receiver_only)**: Only the receiver wallet can claim.
+ *   Receiver must sign the claim contract call. Direct control over funds.
+ * 
+ * Flow:
+ * 1. Verify idempotency (prevent double-claim)
+ * 2. Load transfer and validate status=pending
+ * 3. Check authorization based on payout method
+ * 4. Verify on-chain claim-remittance contract call
+ * 5. Call payout provider API (Paystack/Cinetpay)
+ * 6. Store payout reference and update status to claimed
+ * 7. Send SMS confirmation to sender
+ */
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const claimerWallet = req.auth?.walletAddress;
@@ -81,18 +101,21 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    // Authorization check: operator-only for mobile-money, receiver-only for crypto
     if (transfer.payoutMethod === "mobile_money") {
-      const deployerWallet = getDeployerWallet();
-
-      if (claimerWallet.toLowerCase() !== deployerWallet.toLowerCase()) {
-        res.status(403).json({
-          error: "Only the operator wallet can claim mobile-money transfers.",
+      const operatorWallet = getDeployerWallet();
+      if (claimerWallet !== operatorWallet) {
+        res.status(403).json({ 
+          error: "Not authorized to claim this mobile-money transfer. Only the operator can process this claim." 
         });
         return;
       }
-    } else if (transfer.receiver !== claimerWallet) {
-      res.status(403).json({ error: "Not authorized to claim this transfer" });
-      return;
+    } else {
+      // Receiver-only for crypto wallet payouts
+      if (transfer.receiver !== claimerWallet) {
+        res.status(403).json({ error: "Not authorized to claim this transfer" });
+        return;
+      }
     }
 
     if (process.env.NODE_ENV !== "test") {

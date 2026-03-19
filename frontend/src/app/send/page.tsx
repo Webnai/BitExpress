@@ -1,5 +1,28 @@
 "use client";
 
+/**
+ * Send Page - Hybrid Custody Model UI
+ * 
+ * **Business Model:**
+ * This app supports TWO different custody models depending on payout method:
+ * 
+ * 1. **Mobile Money (Operator-Custodial)**
+ *    - Sender decides: amount, destination country, payout method
+ *    - Recipient phone/name required for Paystack disbursement
+ *    - Recipient wallet OPTIONAL (operator controls escrow)
+ *    - Operator receives sBTC, controls payout timing
+ *    - User flow: sender sends BTC → receiver gets SMS → enters OTP → receives mobile money
+ * 
+ * 2. **Crypto Wallet (Receiver-Custodial)** 
+ *    - Sender requires: receiver's wallet address
+ *    - Recipient wallet REQUIRED and on-chain
+ *    - Receiver controls sBTC directly (no operator intermediary)
+ *    - User flow: sender sends BTC to receiver's wallet → receiver claims with secret
+ * 
+ * Revenue: Exchange spread (market - offered rate) + transfer fees + float management
+ * Risk mgmt: operator custody requires multisig + liquidity controls + OTP verification
+ */
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +37,6 @@ import {
   apiSend,
 } from "@/lib/api";
 import {
-  CONTRACT_ADDRESS,
   createSendRemittanceTx,
   generateClaimSecretHex,
   getStacksTxExplorerUrl,
@@ -40,6 +62,7 @@ function getFlagCountry(code: string) {
 
 const PAY_METHODS = [
   { key: "mobile_money", title: "Mobile Money", icon: "📱" },
+  { key: "crypto_wallet", title: "Crypto Wallet", icon: "₿" },
 ] as const;
 
 type PayoutMethod = (typeof PAY_METHODS)[number]["key"];
@@ -298,17 +321,17 @@ export default function SendPage() {
   const connectedBalanceSbtc = hasValidSbtcBalance ? connectedBalanceSats / 100_000_000 : null;
   const hasLoadedSbtcBalance = connectedBalanceSats !== null;
   const selectedFlagCountry = getFlagCountry(destCountry);
-  const operatorCustodyWallet = CONTRACT_ADDRESS?.trim() ?? "";
   const receiverWalletNormalized = receiverWallet.trim();
+  // For crypto payouts, receiver wallet is required; for mobile-money, it's optional
+  // (operator holds escrow and handles payout)
   const requiresRecipientWallet = method === "crypto_wallet";
-  const onChainReceiverWallet = requiresRecipientWallet ? receiverWalletNormalized : operatorCustodyWallet;
+  const onChainReceiverWallet = receiverWalletNormalized || undefined;
   const recipientNameNormalized = recipientName.trim();
   const phoneNormalized = phone.trim();
   const isAmountValid = Number.isFinite(amountUsd) && amountUsd >= 1 && amountUsd <= 10000;
   const isRecipientWalletValid = !requiresRecipientWallet || isLikelyStacksAddress(receiverWalletNormalized);
   const requiresPhone = method === "mobile_money";
   const requiresMobileOperator = method === "mobile_money";
-  const isOperatorCustodyWalletValid = method !== "mobile_money" || isLikelyStacksAddress(operatorCustodyWallet);
   const isPhoneValid = !requiresPhone || phoneNormalized.length >= 8;
   const isLiveMobileMoneyAvailable =
     method !== "mobile_money" || Boolean(selectedCountryMeta?.supportsMobileMoneyPayout);
@@ -323,7 +346,6 @@ export default function SendPage() {
     Boolean(address) &&
     isAmountValid &&
     isRecipientWalletValid &&
-    isOperatorCustodyWalletValid &&
     isPhoneValid &&
     isLiveMobileMoneyAvailable &&
     isMobileOperatorValid &&
@@ -385,7 +407,7 @@ export default function SendPage() {
     });
 
     const response = await apiSend({
-      receiverWallet: requiresRecipientWallet ? receiverWalletNormalized : undefined,
+      receiverWallet: receiverWalletNormalized,
       amountUsd,
       sourceCountry,
       destCountry,
@@ -425,13 +447,8 @@ export default function SendPage() {
       return;
     }
 
-    if (!isRecipientWalletValid) {
+    if (requiresRecipientWallet && !isRecipientWalletValid) {
       toast.error("Enter a valid recipient Stacks wallet address.");
-      return;
-    }
-
-    if (!isOperatorCustodyWalletValid) {
-      toast.error("Mobile money payout is not configured correctly. Set a valid contract/deployer wallet.");
       return;
     }
 
@@ -486,7 +503,9 @@ export default function SendPage() {
         // This token contract uses direct transfer (no approve/allowance flow).
         toast.info("Sending remittance transaction...");
         const contractCall = await createSendRemittanceTx({
-          receiverWallet: onChainReceiverWallet,
+          // For mobile-money, backend ignores receiver and uses operator wallet.
+          // For crypto, this is the actual receiver's wallet.
+          receiverWallet: onChainReceiverWallet || "SP0000000000000000000000000000000000000000",
           amountSatoshis,
           sourceCountry,
           destCountry,
@@ -657,19 +676,23 @@ export default function SendPage() {
                 />
               </div>
 
-              {requiresRecipientWallet ? (
-                <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
-                  <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Wallet</label>
-                  <input
-                    value={receiverWallet}
-                    onChange={(e) => setReceiverWallet(e.target.value)}
-                    className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
-                    placeholder="SP..."
-                    required
-                  />
-                  <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">Use recipient STX address (starts with SP, ST, SM, or SN).</p>
-                </div>
-              ) : null}
+              <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
+                <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">
+                  Recipient Wallet {method === "mobile_money" && <span className="text-[10px] font-normal">(Optional for mobile money)</span>}
+                </label>
+                <input
+                  value={receiverWallet}
+                  onChange={(e) => setReceiverWallet(e.target.value)}
+                  className="w-full bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
+                  placeholder="SP..."
+                  required={requiresRecipientWallet}
+                />
+                <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                  {method === "mobile_money" 
+                    ? "Optional. If not provided, we'll handle the transfer. If provided, receiver can claim directly to their wallet."
+                    : "Receiver creates/connects wallet first, then shares this address to claim with their secret."}
+                </p>
+              </div>
             </div>
 
             <div className="mt-6">
