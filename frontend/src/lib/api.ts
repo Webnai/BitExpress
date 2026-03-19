@@ -168,7 +168,6 @@ export async function apiSend(payload: {
   destCountry: string;
   recipientPhone?: string;
   recipientName?: string;
-  recipientMobileProvider?: string;
   payoutMethod: string;
   stacksTxId?: string;
   idempotencyKey?: string;
@@ -468,6 +467,41 @@ export async function apiDevCreditMyLedger(payload: {
       lastReason?: string;
     };
   }>("/api/ledger/me/credit", {
+    method: "POST",
+    requiresAuth: true,
+    body: payload,
+  });
+}
+
+export async function apiDevSimulateDepositLifecycle(payload: {
+  amountBtc: number;
+  phase: "pending" | "settle";
+  mintSbtc?: boolean;
+}) {
+  return apiFetch<{
+    walletAddress: string;
+    phase: "pending" | "settle";
+    amountBtc: number;
+    mintedSbtc: boolean;
+    updated: {
+      btc: {
+        id: string;
+        currency: "BTC";
+        availableBalance: number;
+        pendingBalance: number;
+        heldBalance: number;
+        updatedAt: string;
+      };
+      sbtc: {
+        id: string;
+        currency: "sBTC";
+        availableBalance: number;
+        pendingBalance: number;
+        heldBalance: number;
+        updatedAt: string;
+      } | null;
+    };
+  }>("/api/ledger/me/deposit-simulate", {
     method: "POST",
     requiresAuth: true,
     body: payload,

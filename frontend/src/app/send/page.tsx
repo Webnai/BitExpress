@@ -8,6 +8,7 @@ import CountryFlag from "@/components/CountryFlag";
 import { useWallet } from "@/components/WalletProvider";
 import {
   apiGetExchangeRates,
+  apiGetMyLedger,
   apiGetSbtcBalance,
   apiGetWalletHistory,
   apiSend,
@@ -25,19 +26,12 @@ import { Copy, Check } from "lucide-react";
 
 const COUNTRY_OPTIONS = [
   { code: "GHA", name: "Ghana" },
-  { code: "NGA", name: "Nigeria" },
   { code: "KEN", name: "Kenya" },
-  { code: "TGO", name: "Togo" },
-  { code: "SEN", name: "Senegal" },
-  { code: "TZA", name: "Tanzania" },
-  { code: "UGA", name: "Uganda" },
 ] as const;
 
-const FLAG_COUNTRY_BY_CODE: Partial<Record<(typeof COUNTRY_OPTIONS)[number]["code"], "Ghana" | "Nigeria" | "Kenya" | "Togo">> = {
+const FLAG_COUNTRY_BY_CODE: Partial<Record<(typeof COUNTRY_OPTIONS)[number]["code"], "Ghana" | "Kenya">> = {
   GHA: "Ghana",
-  NGA: "Nigeria",
   KEN: "Kenya",
-  TGO: "Togo",
 };
 
 function getFlagCountry(code: string) {
@@ -46,7 +40,6 @@ function getFlagCountry(code: string) {
 
 const PAY_METHODS = [
   { key: "mobile_money", title: "Mobile Money", icon: "📱" },
-  { key: "crypto_wallet", title: "Crypto Wallet", icon: "₿" },
 ] as const;
 
 type PayoutMethod = (typeof PAY_METHODS)[number]["key"];
@@ -137,6 +130,11 @@ export default function SendPage() {
   const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
   const [sbtcAssetIdentifier, setSbtcAssetIdentifier] = useState<string | null>(null);
   const [recentRecipients, setRecentRecipients] = useState<WalletHistoryRecipient[]>([]);
+  const [ledgerSnapshot, setLedgerSnapshot] = useState<{
+    btcAvailable: number;
+    btcPending: number;
+    sbtcAvailable: number;
+  } | null>(null);
   const [transferResult, setTransferResult] = useState<{
     id: string;
     status: string;
@@ -183,12 +181,14 @@ export default function SendPage() {
         setSbtcBalance(null);
         setSbtcAssetIdentifier(null);
         setRecentRecipients([]);
+        setLedgerSnapshot(null);
         return;
       }
 
-      const [balanceResult, historyResult] = await Promise.allSettled([
+      const [balanceResult, historyResult, ledgerResult] = await Promise.allSettled([
         apiGetSbtcBalance(address),
         apiGetWalletHistory(address),
+        apiGetMyLedger(),
       ]);
 
       if (cancelled) return;
@@ -232,6 +232,19 @@ export default function SendPage() {
           address,
           message: historyResult.reason instanceof Error ? historyResult.reason.message : "unknown",
         });
+      }
+
+      if (ledgerResult.status === "fulfilled") {
+        const rows = ledgerResult.value.ledger;
+        const btc = rows.find((entry) => entry.currency === "BTC");
+        const sbtc = rows.find((entry) => entry.currency === "sBTC");
+        setLedgerSnapshot({
+          btcAvailable: btc?.availableBalance ?? 0,
+          btcPending: btc?.pendingBalance ?? 0,
+          sbtcAvailable: sbtc?.availableBalance ?? 0,
+        });
+      } else {
+        setLedgerSnapshot(null);
       }
     }
 
@@ -303,6 +316,9 @@ export default function SendPage() {
     !requiresMobileOperator || selectedMobileMoneyOperators.some((operator) => operator.code === recipientMobileProvider);
   const isRecipientNameValid = recipientNameNormalized.length > 1;
   const hasEnoughSbtcBalance = hasValidSbtcBalance && amountSatoshis <= connectedBalanceSats;
+  const shouldShowSbtcFundingBlocker =
+    Boolean(address) && hasLoadedSbtcBalance && connectedBalanceSats === 0;
+  const ledgerHasPendingBtc = Boolean((ledgerSnapshot?.btcPending ?? 0) > 0);
   const canSubmitForm =
     Boolean(address) &&
     isAmountValid &&
@@ -375,7 +391,6 @@ export default function SendPage() {
       destCountry,
       recipientPhone: phoneNormalized || undefined,
       recipientName: recipientNameNormalized || undefined,
-      recipientMobileProvider: method === "mobile_money" ? recipientMobileProvider : undefined,
       payoutMethod: method,
       stacksTxId: txid,
       idempotencyKey,
@@ -631,37 +646,6 @@ export default function SendPage() {
                 ) : null}
               </div>
 
-              {requiresMobileOperator ? (
-                <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
-                  <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Mobile Money Operator</label>
-                  {selectedMobileMoneyOperators.length ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <select
-                        value={recipientMobileProvider}
-                        onChange={(e) => setRecipientMobileProvider(e.target.value)}
-                        className="w-full appearance-none bg-transparent text-sm font-medium text-[var(--color-text)] outline-none"
-                      >
-                        {selectedMobileMoneyOperators.map((operator) => (
-                          <option key={operator.code} value={operator.code}>
-                            {operator.label}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-[var(--color-text-muted)]">▾</span>
-                    </div>
-                  ) : (
-                    <p className="text-sm font-medium text-[var(--color-danger-500)]">
-                      Live mobile-money payout is not available for this country via Paystack or CinetPay.
-                    </p>
-                  )}
-                  {selectedOperator ? (
-                    <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
-                      Routed through {selectedOperator.provider === "paystack" ? "Paystack" : "CinetPay"}.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
               <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-3">
                 <label className="mb-1 block text-[11px] text-[var(--color-text-muted)]">Recipient Name</label>
                 <input
@@ -880,6 +864,31 @@ export default function SendPage() {
 
             <div className="mt-5 rounded-xl bg-[var(--color-primary-soft)] p-3 text-xs text-[var(--color-primary)]">⚡ Arrives in 5-15 minutes</div>
             <p className="mt-3 text-xs text-[var(--color-text-muted)]">🛡️ Rate from live external APIs, with mobile-money payouts routed through Paystack or CinetPay where available</p>
+
+            {shouldShowSbtcFundingBlocker ? (
+              <div className="mt-4 rounded-xl border border-[var(--color-danger-500)] bg-[var(--color-danger-soft)] p-3 text-xs text-[var(--color-text)]">
+                <p className="font-semibold text-[var(--color-heading)]">Funding Required Before Send</p>
+                <p className="mt-1">
+                  Your wallet currently has 0 sBTC. BitExpress send escrow uses sBTC, while STX is only for gas fees.
+                </p>
+                {ledgerSnapshot ? (
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                    Ledger snapshot: BTC available {ledgerSnapshot.btcAvailable}, BTC pending {ledgerSnapshot.btcPending}, sBTC available {ledgerSnapshot.sbtcAvailable}.
+                  </p>
+                ) : null}
+                {ledgerHasPendingBtc ? (
+                  <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                    Your BTC funding appears pending confirmation. Once settled and converted, sBTC should become available for send.
+                  </p>
+                ) : null}
+                <Link
+                  href="/fund"
+                  className="mt-2 inline-flex rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                >
+                  Open Fund Page
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-5 space-y-2">
               <button

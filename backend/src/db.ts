@@ -7,6 +7,10 @@ import {
   isFirebaseAdminConfigured,
 } from "./firebaseAdmin";
 
+function stripUndefined<T extends Record<string, unknown>>(input: T): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
 export interface AuditFields {
   createdByUid: string;
   updatedByUid: string;
@@ -30,8 +34,8 @@ export interface Transfer extends AuditFields {
   recipientPhone?: string;
   recipientName?: string;
   recipientMobileProvider?: string;
-  payoutMethod: "mobile_money" | "bank_transfer" | "crypto_wallet";
-  payoutProvider?: "paystack" | "cinetpay" | "flutterwave" | "stacks";
+  payoutMethod: "mobile_money" | "crypto_wallet";
+  payoutProvider?: "paystack" | "stacks";
   payoutStatus?: "not_started" | "processing" | "success" | "failed";
   claimCodeHash?: string;
   stacksTxId?: string;
@@ -330,11 +334,11 @@ class FirestoreDatabase implements DatabaseAdapter {
   }
 
   async createTransfer(transfer: Transfer): Promise<Transfer> {
-    await this.firestore.collection("transfers").doc(transfer.id).set({
+    await this.firestore.collection("transfers").doc(transfer.id).set(stripUndefined({
       ...transfer,
       createdAtServer: FieldValue.serverTimestamp(),
       updatedAtServer: FieldValue.serverTimestamp(),
-    });
+    }));
     return transfer;
   }
 
@@ -348,10 +352,10 @@ class FirestoreDatabase implements DatabaseAdapter {
     const snap = await ref.get();
     if (!snap.exists) return null;
     await ref.set(
-      {
+      stripUndefined({
         ...updates,
         updatedAtServer: FieldValue.serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
     const updated = await ref.get();
@@ -445,10 +449,10 @@ class FirestoreDatabase implements DatabaseAdapter {
     const snap = await ref.get();
     if (!snap.exists) return null;
     await ref.set(
-      {
+      stripUndefined({
         ...updates,
         updatedAtServer: FieldValue.serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
     const updated = await ref.get();
@@ -464,19 +468,19 @@ class FirestoreDatabase implements DatabaseAdapter {
   }
 
   async saveIdempotencyRecord(record: IdempotencyRecord): Promise<IdempotencyRecord> {
-    await this.firestore.collection("idempotency").doc(`${record.scope}:${record.key}`).set({
+    await this.firestore.collection("idempotency").doc(`${record.scope}:${record.key}`).set(stripUndefined({
       ...record,
       createdAtServer: FieldValue.serverTimestamp(),
-    });
+    }));
     return record;
   }
 
   async saveAuthChallenge(challenge: AuthChallenge): Promise<AuthChallenge> {
-    await this.firestore.collection("authChallenges").doc(challenge.walletAddress).set({
+    await this.firestore.collection("authChallenges").doc(challenge.walletAddress).set(stripUndefined({
       ...challenge,
       createdAtServer: FieldValue.serverTimestamp(),
       updatedAtServer: FieldValue.serverTimestamp(),
-    });
+    }));
     return challenge;
   }
 

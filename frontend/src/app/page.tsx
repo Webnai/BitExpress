@@ -6,40 +6,34 @@ const FEATURES = [
   {
     icon: "⚡",
     title: "Instant Settlement",
-    description:
-      "Money arrives in minutes, not days. Real-time settlement powered by the Bitcoin network.",
-  },
-  {
-    icon: "₿",
-    title: "Bitcoin-Secured",
-    description:
-      "Transparent and immutable transfer records protected by Bitcoin finality.",
+    description: "Money arrives in minutes, not days.",
   },
   {
     icon: "📱",
     title: "Mobile Money Ready",
-    description:
-      "Direct integration with MTN Mobile Money, M-Pesa, and trusted local rails.",
+    description: "Send directly to MTN, Vodafone, or M-Pesa.",
+  },
+  {
+    icon: "🔒",
+    title: "Secure & Simple",
+    description: "Easy to use, no technical knowledge needed.",
   },
   {
     icon: "🌍",
-    title: "Pan-African Coverage",
-    description:
-      "Send money across Ghana, Nigeria, Kenya, Togo, and more African corridors.",
+    title: "Send to Africa",
+    description: "Send money to Ghana and Kenya easily.",
   },
 ];
 
 const STEPS = [
-  { step: "1", title: "Connect Your Wallet", desc: "Connect a Stacks wallet (Leather) and load it with sBTC — real Bitcoin on Stacks." },
-  { step: "2", title: "Send via Smart Contract", desc: "Enter recipient details and confirm the escrow transaction directly from your wallet." },
-  { step: "3", title: "Receiver Claims & Cashes Out", desc: "The receiver enters the claim secret, releases funds on-chain, and withdraws to mobile money or a bank." },
+  { step: "1", title: "Connect Your Wallet", desc: "Link your Stacks wallet (Leather) with sBTC." },
+  { step: "2", title: "Enter Recipient", desc: "Enter their phone number and name." },
+  { step: "3", title: "Send & Receive", desc: "Money arrives to their mobile money instantly." },
 ];
 
 const COUNTRIES = [
-  { name: "Ghana" as const, methods: ["Paystack MoMo", "MTN / Vodafone / AirtelTigo"] },
-  { name: "Nigeria" as const, methods: ["Wallet Claim", "Mobile payout not yet supported"] },
-  { name: "Kenya" as const, methods: ["Paystack M-Pesa", "On-chain claim"] },
-  { name: "Togo" as const, methods: ["CinetPay", "TMoney / Flooz"] },
+  { name: "Ghana" as const, payout: "MTN / Vodafone / AirtelTigo" },
+  { name: "Kenya" as const, payout: "M-Pesa" },
 ];
 
 export default function LandingPage() {
@@ -88,12 +82,10 @@ export default function LandingPage() {
 
       <section className="px-4 py-5 landing-trust-band">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-3 text-center text-sm font-medium text-[var(--color-text-muted)]">
-          <span>Prototype live on Stacks testnet with wallet-based send, claim, and refund flows</span>
+          <span>Live remittance service for Ghana and Kenya</span>
           <div className="flex items-center gap-2">
             <CountryFlag country="Ghana" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
-            <CountryFlag country="Nigeria" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
             <CountryFlag country="Kenya" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
-            <CountryFlag country="Togo" variant={2} size={24} className="h-6 w-6 rounded-sm object-cover" />
           </div>
         </div>
       </section>
@@ -165,9 +157,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold text-[var(--color-heading)] mb-3">{country.name}</h3>
                 <div className="space-y-1">
-                  {country.methods.map((method) => (
-                    <p key={method} className="text-sm text-[var(--color-text-muted)]">📱 {method}</p>
-                  ))}
+                  <p className="text-sm text-[var(--color-text-muted)]">📱 {country.payout}</p>
                 </div>
               </div>
             ))}

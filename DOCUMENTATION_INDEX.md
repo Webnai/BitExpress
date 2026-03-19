@@ -177,6 +177,7 @@ BitExpress/
 | /api/exchange-rate | GET | No | Get USD→local FX rate |
 | /api/webhooks/paystack/transfer | POST | No* | Paystack callback |
 | /api/webhooks/cinetpay/transfer | POST | No* | Cinetpay callback |
+| /api/webhooks/btc/deposit | POST | No* | BTC deposit lifecycle callback (pending/confirmed) |
 
 ### Key Smart Contract Functions
 ```clarity

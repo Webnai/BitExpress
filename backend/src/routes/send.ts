@@ -8,7 +8,6 @@ import {
   PLATFORM_FEE_BASIS_POINTS,
   SUPPORTED_COUNTRIES,
   getDeployerWallet,
-  getMobileMoneyOperator,
 } from "../config";
 import { usdToSbtcSatoshis, getLiveBtcUsdPrice } from "../services/fxService";
 import { sendNotification } from "../services/notificationService";
@@ -93,7 +92,6 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       destCountry,
       recipientPhone,
       recipientName,
-      recipientMobileProvider,
       payoutMethod = "mobile_money",
       stacksTxId,
     } = req.body as {
@@ -103,8 +101,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       destCountry?: string;
       recipientPhone?: string;
       recipientName?: string;
-      recipientMobileProvider?: string;
-      payoutMethod?: "mobile_money" | "bank_transfer" | "crypto_wallet";
+      payoutMethod?: "mobile_money" | "crypto_wallet";
       stacksTxId?: string;
     };
 
@@ -158,7 +155,6 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       destCountry,
       recipientPhone: recipientPhone ?? null,
       recipientName: recipientName ?? null,
-      recipientMobileProvider: recipientMobileProvider ?? null,
       payoutMethod,
       stacksTxId: stacksTxId ?? null,
     });
@@ -196,32 +192,12 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
       if (!SUPPORTED_COUNTRIES[destCountry].supportsMobileMoneyPayout) {
         res.status(400).json({
-          error: `${SUPPORTED_COUNTRIES[destCountry].name} mobile-money payouts are not available on the live rails currently integrated into BitExpress.`,
-        });
-        return;
-      }
-
-      if (!recipientMobileProvider) {
-        res.status(400).json({
-          error: "recipientMobileProvider is required for mobile-money payouts.",
-        });
-        return;
-      }
-
-      if (!getMobileMoneyOperator(destCountry, recipientMobileProvider)) {
-        res.status(400).json({
-          error: `Unsupported mobile-money operator for ${SUPPORTED_COUNTRIES[destCountry].name}.`,
+          error: `${SUPPORTED_COUNTRIES[destCountry].name} mobile-money payouts are not available.`,
         });
         return;
       }
     }
 
-    if (payoutMethod === "bank_transfer") {
-      res.status(400).json({
-        error: "Bank transfer payout is disabled until a live bank disbursement rail is integrated.",
-      });
-      return;
-    }
 
     const amount = Number(amountUsd);
     if (Number.isNaN(amount) || amount < 1 || amount > 10000) {
@@ -321,12 +297,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       destCountry,
       recipientPhone,
       recipientName,
-      recipientMobileProvider,
       payoutMethod,
-      payoutProvider:
-        payoutMethod === "mobile_money"
-          ? SUPPORTED_COUNTRIES[destCountry].mobileMoneyProvider
-          : "stacks",
+      payoutProvider: "paystack",
       payoutStatus: payoutMethod === "crypto_wallet" ? "success" : "not_started",
       stacksTxId,
       status: "pending",

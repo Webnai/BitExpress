@@ -3,10 +3,10 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { Router, Request, Response } from "express";
 
 import {
-  CINETPAY_WEBHOOK_SECRET,
+  BTC_DEPOSIT_WEBHOOK_SECRET,
   PAYSTACK_WEBHOOK_SECRET,
 } from "../config";
-import { db } from "../db";
+import { db, WalletLedgerBalance } from "../db";
 import { logError, logInfo } from "../utils/logging";
 
 const router = Router();
@@ -48,19 +48,8 @@ function statusFromPaystackEvent(event: string): "processing" | "success" | "fai
   return "processing";
 }
 
-function statusFromCinetTreatmentStatus(value: string): "processing" | "success" | "failed" {
-  const normalized = value.toUpperCase();
-  if (normalized === "VAL") {
-    return "success";
-  }
-  if (normalized === "REJ") {
-    return "failed";
-  }
-  return "processing";
-}
-
 async function updateTransferFromWebhook(input: {
-  provider: "paystack" | "cinetpay";
+  provider: "paystack";
   reference: string;
   payoutStatus: "processing" | "success" | "failed";
   rawPayload: unknown;
@@ -100,50 +89,45 @@ async function updateTransferFromWebhook(input: {
   return true;
 }
 
-router.post("/cinetpay/transfer", async (req: Request, res: Response) => {
-  const rawBody = req.rawBody || JSON.stringify(req.body || {});
-  const signature =
-    req.header("x-cinetpay-signature") || req.header("x-token") || "";
+function isStacksAddress(value: string): boolean {
+  return /^S[PTMN][A-Z0-9]{20,60}$/.test(value.trim().toUpperCase());
+}
 
-  if (!shouldSkipSignature(CINETPAY_WEBHOOK_SECRET)) {
-    const expected = hmacSha256(rawBody, CINETPAY_WEBHOOK_SECRET);
-    if (!secureCompare(expected, signature)) {
-      logError("webhook.cinetpay.signature_invalid", {
-        provider: "cinetpay",
-      });
-      res.status(401).json({ error: "Invalid webhook signature" });
-      return;
-    }
-  }
+function findLedgerEntry(
+  entries: WalletLedgerBalance[],
+  currency: WalletLedgerBalance["currency"]
+): WalletLedgerBalance | undefined {
+  return entries.find((entry) => entry.currency === currency);
+}
 
-  const payload = req.body as Record<string, unknown>;
-  const eventData = Array.isArray(payload?.data)
-    ? (payload.data[0] as Record<string, unknown> | undefined)
-    : undefined;
-  const clientReference = String(
-    payload?.client_transaction_id || eventData?.client_transaction_id || ""
-  );
-  const transactionReference = String(
-    payload?.transaction_id || eventData?.transaction_id || ""
-  );
-  const treatmentStatus = String(
-    payload?.treatment_status || eventData?.treatment_status || "NEW"
-  );
+function buildLedgerEntry(input: {
+  existing?: WalletLedgerBalance;
+  walletAddress: string;
+  currency: WalletLedgerBalance["currency"];
+  availableBalance: number;
+  pendingBalance: number;
+  heldBalance: number;
+  reason: string;
+}): WalletLedgerBalance {
+  const now = new Date();
+  const actorUid = "system:webhook";
 
-  if (!clientReference && !transactionReference) {
-    res.status(202).json({ received: true, reconciled: false, reason: "missing_reference" });
-    return;
-  }
-
-  const reconciled = await updateTransferFromWebhook({
-    provider: "cinetpay",
-    reference: clientReference || transactionReference,
-    payoutStatus: statusFromCinetTreatmentStatus(treatmentStatus),
-    rawPayload: payload,
-  });
-
-  res.json({ received: true, reconciled });
-});
+  return {
+    id: input.existing?.id ?? `${input.walletAddress}:${input.currency}`,
+    walletAddress: input.walletAddress,
+    currency: input.currency,
+    availableBalance: input.availableBalance,
+    pendingBalance: input.pendingBalance,
+    heldBalance: input.heldBalance,
+    lastReason: input.reason,
+    createdAt: input.existing?.createdAt ?? now.toISOString(),
+    updatedAt: now.toISOString(),
+    createdByUid: input.existing?.createdByUid ?? actorUid,
+    updatedByUid: actorUid,
+    createdAtMs: input.existing?.createdAtMs ?? now.getTime(),
+    updatedAtMs: now.getTime(),
+  };
+}
 
 router.post("/paystack/transfer", async (req: Request, res: Response) => {
   const rawBody = req.rawBody || JSON.stringify(req.body || {});
@@ -186,6 +170,110 @@ router.post("/paystack/transfer", async (req: Request, res: Response) => {
   });
 
   res.json({ received: true, reconciled });
+});
+
+router.post("/btc/deposit", async (req: Request, res: Response) => {
+  const rawBody = req.rawBody || JSON.stringify(req.body || {});
+  const signature = req.header("x-bitexpress-signature") || "";
+
+  if (!shouldSkipSignature(BTC_DEPOSIT_WEBHOOK_SECRET)) {
+    const expected = hmacSha256(rawBody, BTC_DEPOSIT_WEBHOOK_SECRET);
+    if (!secureCompare(expected, signature)) {
+      logError("webhook.btc_deposit.signature_invalid", {
+        provider: "btc-deposit",
+      });
+      res.status(401).json({ error: "Invalid webhook signature" });
+      return;
+    }
+  }
+
+  const payload = req.body as {
+    walletAddress?: string;
+    amountBtc?: number;
+    status?: "pending" | "confirmed";
+    mintSbtc?: boolean;
+    sourceTxId?: string;
+  };
+
+  const walletAddress = String(payload.walletAddress || "").trim().toUpperCase();
+  const amountBtc = Number(payload.amountBtc);
+  const status = payload.status;
+  const mintSbtc = Boolean(payload.mintSbtc);
+
+  if (!walletAddress || !isStacksAddress(walletAddress)) {
+    res.status(400).json({ error: "walletAddress must be a valid Stacks wallet address." });
+    return;
+  }
+
+  if (!Number.isFinite(amountBtc) || amountBtc <= 0) {
+    res.status(400).json({ error: "amountBtc must be a positive number." });
+    return;
+  }
+
+  if (status !== "pending" && status !== "confirmed") {
+    res.status(400).json({ error: "status must be pending or confirmed." });
+    return;
+  }
+
+  const entries = await db.getWalletLedger(walletAddress);
+  const btcExisting = findLedgerEntry(entries, "BTC");
+
+  const currentPending = btcExisting?.pendingBalance ?? 0;
+  const currentAvailable = btcExisting?.availableBalance ?? 0;
+
+  const nextPending = status === "pending" ? currentPending + amountBtc : Math.max(0, currentPending - amountBtc);
+  const nextAvailable = status === "confirmed" ? currentAvailable + amountBtc : currentAvailable;
+
+  const btcUpdated = buildLedgerEntry({
+    existing: btcExisting,
+    walletAddress,
+    currency: "BTC",
+    availableBalance: nextAvailable,
+    pendingBalance: nextPending,
+    heldBalance: btcExisting?.heldBalance ?? 0,
+    reason: status === "pending" ? "webhook_btc_deposit_pending" : "webhook_btc_deposit_confirmed",
+  });
+
+  await db.upsertWalletLedger(btcUpdated);
+
+  let sbtcUpdated: WalletLedgerBalance | undefined;
+  if (status === "confirmed" && mintSbtc) {
+    const sbtcExisting = findLedgerEntry(entries, "sBTC");
+    sbtcUpdated = buildLedgerEntry({
+      existing: sbtcExisting,
+      walletAddress,
+      currency: "sBTC",
+      availableBalance: (sbtcExisting?.availableBalance ?? 0) + amountBtc,
+      pendingBalance: sbtcExisting?.pendingBalance ?? 0,
+      heldBalance: sbtcExisting?.heldBalance ?? 0,
+      reason: "webhook_sbtc_credit_confirmed_btc",
+    });
+
+    await db.upsertWalletLedger(sbtcUpdated);
+  }
+
+  logInfo("webhook.btc_deposit.reconciled", {
+    walletAddress,
+    sourceTxId: payload.sourceTxId,
+    amountBtc,
+    status,
+    mintSbtc,
+    btcAvailable: btcUpdated.availableBalance,
+    btcPending: btcUpdated.pendingBalance,
+    sbtcAvailable: sbtcUpdated?.availableBalance,
+  });
+
+  res.json({
+    received: true,
+    walletAddress,
+    amountBtc,
+    status,
+    mintSbtc,
+    updated: {
+      btc: btcUpdated,
+      sbtc: sbtcUpdated ?? null,
+    },
+  });
 });
 
 export default router;

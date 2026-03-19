@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useWallet } from "@/components/WalletProvider";
 import {
   apiDevCreditMyLedger,
+  apiDevSimulateDepositLifecycle,
   apiGetMyLedger,
   apiGetSbtcBalance,
   apiGetWalletBalance,
@@ -28,6 +29,8 @@ export default function FundGuidePage() {
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isMintingFaucet, setIsMintingFaucet] = useState(false);
   const [isCreditingLedger, setIsCreditingLedger] = useState(false);
+  const [isSimulatingPending, setIsSimulatingPending] = useState(false);
+  const [isSimulatingSettle, setIsSimulatingSettle] = useState(false);
   const [stxBalance, setStxBalance] = useState<string | null>(null);
   const [sbtcBalance, setSbtcBalance] = useState<string | null>(null);
   const [sbtcAssetIdentifier, setSbtcAssetIdentifier] = useState<string | null>(null);
@@ -173,6 +176,66 @@ export default function FundGuidePage() {
     }
   }
 
+  async function handleSimulatePendingDeposit() {
+    if (!stacksReady) {
+      toast.error("Connect a Stacks wallet first.");
+      return;
+    }
+
+    setIsSimulatingPending(true);
+    try {
+      await apiDevSimulateDepositLifecycle({
+        amountBtc: 0.02,
+        phase: "pending",
+      });
+      await refreshBalances();
+      toast.success("Simulated BTC deposit is now pending in ledger.");
+      logClientInfo("fund.ledger.deposit_pending.simulated", {
+        address,
+        amountBtc: 0.02,
+      });
+    } catch (error) {
+      logClientError("fund.ledger.deposit_pending.failed", {
+        address,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+      toast.error(error instanceof Error ? error.message : "Unable to simulate pending deposit.");
+    } finally {
+      setIsSimulatingPending(false);
+    }
+  }
+
+  async function handleSimulateSettleDeposit() {
+    if (!stacksReady) {
+      toast.error("Connect a Stacks wallet first.");
+      return;
+    }
+
+    setIsSimulatingSettle(true);
+    try {
+      await apiDevSimulateDepositLifecycle({
+        amountBtc: 0.02,
+        phase: "settle",
+        mintSbtc: true,
+      });
+      await refreshBalances();
+      toast.success("Simulated BTC settlement complete. sBTC ledger credit added.");
+      logClientInfo("fund.ledger.deposit_settle.simulated", {
+        address,
+        amountBtc: 0.02,
+        mintSbtc: true,
+      });
+    } catch (error) {
+      logClientError("fund.ledger.deposit_settle.failed", {
+        address,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+      toast.error(error instanceof Error ? error.message : "Unable to settle simulated deposit.");
+    } finally {
+      setIsSimulatingSettle(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <div className="mx-auto max-w-[980px] px-4 py-8 md:px-6 md:py-10">
@@ -228,6 +291,22 @@ export default function FundGuidePage() {
               className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isCreditingLedger ? "Crediting..." : "Add Demo BTC Ledger Credit"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSimulatePendingDeposit()}
+              disabled={isSimulatingPending || !stacksReady}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSimulatingPending ? "Simulating Pending..." : "Simulate BTC Deposit Pending"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSimulateSettleDeposit()}
+              disabled={isSimulatingSettle || !stacksReady}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-muted)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSimulatingSettle ? "Settling..." : "Simulate BTC Settle + sBTC Credit"}
             </button>
           </div>
         </div>
