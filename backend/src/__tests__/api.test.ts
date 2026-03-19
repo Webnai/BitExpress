@@ -2,13 +2,49 @@ import request from "supertest";
 
 import { getDeployerWallet } from "../config";
 import { assertFirestoreConfigForProduction } from "../db";
+import { db } from "../db";
 import app from "../index";
+import * as authService from "../services/authService";
 
 function authHeader(wallet: string, uid = `uid-${wallet}`): string {
   return `Bearer test-token:${uid}:${wallet}`;
 }
 
 describe("BitExpress API", () => {
+  describe("POST /api/auth/verify", () => {
+    it("returns custom token and creates a user profile on first login", async () => {
+      const walletAddress = `SPAUTH${Date.now()}`;
+
+      const verifySpy = jest
+        .spyOn(authService, "verifyAuthChallengeAndMintToken")
+        .mockResolvedValue("custom-token-auth-test");
+
+      const res = await request(app).post("/api/auth/verify").send({
+        walletAddress,
+        nonce: "nonce-test",
+        signature: "signature-test",
+        publicKey: "publickey-test",
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.customToken).toBe("custom-token-auth-test");
+      expect(res.body.walletAddress).toBe(walletAddress);
+      expect(verifySpy).toHaveBeenCalledWith({
+        walletAddress,
+        nonce: "nonce-test",
+        signature: "signature-test",
+        publicKey: "publickey-test",
+      });
+
+      const user = await db.getUserByWallet(walletAddress);
+      expect(user).toBeDefined();
+      expect(user?.walletAddress).toBe(walletAddress);
+      expect(user?.country).toBe("unknown");
+
+      verifySpy.mockRestore();
+    });
+  });
+
   describe("GET /health", () => {
     it("returns healthy status", async () => {
       const res = await request(app).get("/health");

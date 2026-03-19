@@ -1,10 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  TurnkeyProvider,
+  useTurnkey,
+  type TurnkeyProviderConfig,
+} from "@turnkey/react-wallet-kit";
 
 import { apiCreateAuthChallenge, apiVerifyWalletSignature } from "@/lib/api";
 import { getE2EWalletSession } from "@/lib/e2e";
 import { STACKS_NETWORK } from "@/lib/stacks";
+import { getTurnkeyRuntimeConfig } from "@/lib/turnkey";
 import {
   getFirebaseIdToken,
   getFirebaseSessionWalletAddress,
@@ -37,8 +43,23 @@ interface WalletAddressEntry {
 }
 
 const STORAGE_KEY = "bitexpress.wallet";
+const turnkeyRuntimeConfig = getTurnkeyRuntimeConfig();
+
+const turnkeyProviderConfig: TurnkeyProviderConfig | null = turnkeyRuntimeConfig
+  ? {
+      organizationId: turnkeyRuntimeConfig.organizationId,
+      authProxyConfigId: turnkeyRuntimeConfig.authProxyConfigId,
+      auth: {
+        methods: {
+          emailOtpAuthEnabled: true,
+          passkeyAuthEnabled: true,
+        },
+      },
+    }
+  : null;
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
+type TurnkeyLoginRunner = (() => Promise<void>) | undefined;
 
 async function loadStacksConnect() {
   return import("@stacks/connect");
@@ -61,7 +82,13 @@ function walletNameFromProviderId(providerId: string | null): WalletName | null 
   return null;
 }
 
-export function WalletProvider({ children }: { children: React.ReactNode }) {
+function WalletProviderCore({
+  children,
+  runTurnkeyLogin,
+}: {
+  children: React.ReactNode;
+  runTurnkeyLogin?: TurnkeyLoginRunner;
+}) {
   const [address, setAddress] = useState<string | null>(null);
   const [walletName, setWalletName] = useState<WalletName | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -146,6 +173,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
+      if (runTurnkeyLogin) {
+        await runTurnkeyLogin();
+      }
+
       const e2eSession = getE2EWalletSession();
       if (e2eSession) {
         setAddress(e2eSession.address);
@@ -243,7 +274,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [runTurnkeyLogin]);
 
   const disconnectWallet = useCallback(async () => {
     const e2eSession = getE2EWalletSession();
@@ -279,6 +310,41 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+}
+
+function WalletProviderWithTurnkey({ children }: { children: React.ReactNode }) {
+  const { handleLogin, authState } = useTurnkey();
+
+  const runTurnkeyLogin = useCallback(async () => {
+    if (authState === "authenticated") {
+      return;
+    }
+
+    await handleLogin({
+      title: "Log in or sign up to BitExpress",
+    });
+  }, [authState, handleLogin]);
+
+  return <WalletProviderCore runTurnkeyLogin={runTurnkeyLogin}>{children}</WalletProviderCore>;
+}
+
+export function WalletProvider({ children }: { children: React.ReactNode }) {
+  if (!turnkeyProviderConfig) {
+    return <WalletProviderCore>{children}</WalletProviderCore>;
+  }
+
+  return (
+    <TurnkeyProvider
+      config={turnkeyProviderConfig}
+      callbacks={{
+        onError: (error) => {
+          console.error("[turnkey] auth flow error", error);
+        },
+      }}
+    >
+      <WalletProviderWithTurnkey>{children}</WalletProviderWithTurnkey>
+    </TurnkeyProvider>
+  );
 }
 
 export function useWallet() {

@@ -159,6 +159,11 @@ export default function TrackPage() {
 
             <div className="h-px bg-[var(--color-border)]" />
 
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-xs text-[var(--color-text-muted)]">
+              <p>Operator claim: BitExpress claims on-chain then settles beneficiary payout.</p>
+              <p className="mt-1">Receiver claim: receiver wallet claims funds directly on-chain.</p>
+            </div>
+
             {/* Details */}
             <div>
               <div className="flex items-center justify-between mb-1 py-3 border-b border-[var(--color-border)]">

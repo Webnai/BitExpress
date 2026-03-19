@@ -390,6 +390,14 @@ export default function DashboardPage() {
                 <div>
                   <CardTitle className="text-[1.7rem] font-bold text-[var(--color-heading)]">Transaction History</CardTitle>
                   <p className="text-sm text-[var(--color-text-muted)]">Backed by your wallet address and backend records</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge className="bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]">
+                      Operator claim: mobile-money custody
+                    </Badge>
+                    <Badge className="bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]">
+                      Receiver claim: direct wallet payout
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </CardHeader>

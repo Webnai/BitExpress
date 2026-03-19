@@ -139,7 +139,7 @@ export default function Navbar() {
               onClick={() => void handleConnect()}
               disabled={isConnecting}
             >
-              {isConnecting ? "Connecting…" : "Connect Leather"}
+              {isConnecting ? "Connecting…" : "Login / Sign up"}
             </button>
           )}
         </div>
@@ -212,7 +212,7 @@ export default function Navbar() {
                 }}
                 disabled={isConnecting}
               >
-                {isConnecting ? "Connecting…" : "Connect Leather"}
+                {isConnecting ? "Connecting…" : "Login / Sign up"}
               </button>
             )}
           </div>

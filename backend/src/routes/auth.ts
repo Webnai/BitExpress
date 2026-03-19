@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 
 import { createAuthChallenge, verifyAuthChallengeAndMintToken } from "../services/authService";
+import { db } from "../db";
 import { logRequestError, logRequestInfo } from "../utils/logging";
 
 const router = Router();
@@ -51,18 +52,30 @@ router.post("/verify", async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedWalletAddress = walletAddress.trim();
+
     const customToken = await verifyAuthChallengeAndMintToken({
-      walletAddress: walletAddress.trim(),
+      walletAddress: normalizedWalletAddress,
       nonce: nonce.trim(),
       signature: signature.trim(),
       publicKey: publicKey.trim(),
     });
 
-    logRequestInfo(req, "auth.verify.succeeded", { walletAddress });
+    // Ensure a user profile exists right after successful auth.
+    const existingUser = await db.getUserByWallet(normalizedWalletAddress);
+    if (!existingUser) {
+      await db.upsertUser({
+        walletAddress: normalizedWalletAddress,
+        country: "unknown",
+        actorUid: normalizedWalletAddress,
+      });
+    }
+
+    logRequestInfo(req, "auth.verify.succeeded", { walletAddress: normalizedWalletAddress });
 
     res.json({
       customToken,
-      walletAddress,
+      walletAddress: normalizedWalletAddress,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Auth verification failed.";

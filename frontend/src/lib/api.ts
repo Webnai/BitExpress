@@ -134,7 +134,7 @@ export async function apiVerifyWalletSignature(payload: {
 }
 
 export async function apiSend(payload: {
-  receiverWallet: string;
+  receiverWallet?: string;
   amountUsd: number;
   sourceCountry: string;
   destCountry: string;
