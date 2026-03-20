@@ -151,7 +151,7 @@ export default function ReceivePage() {
       .then((data) => {
         const received = data.received.slice(0, 4).map((r) => ({
             id: r.id,
-            counterpartyWallet: r.counterpartyWallet,
+            counterpartyWallet: r.counterpartyWallet ?? "",
             counterpartyName: r.counterpartyName,
             amountUsd: r.amountUsd,
             countryName: r.countryName,

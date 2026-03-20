@@ -115,7 +115,7 @@ export async function createSendRemittanceTx(input: {
 export async function createSbtcFaucetTx(): Promise<{ txid: string }> {
   const [{ request }] = await Promise.all([import("@stacks/connect")]);
 
-  const faucetContract = `${CONTRACT_ADDRESS}.sbtc-token-v3`;
+  const faucetContract = `${CONTRACT_ADDRESS}.sbtc-token-v3` as `${string}.${string}`;
 
   logClientInfo("stacks.faucet.request", {
     contract: faucetContract,
